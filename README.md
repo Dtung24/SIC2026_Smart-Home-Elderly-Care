@@ -121,8 +121,8 @@ flowchart LR
 
 ## 💻 Công Nghệ & Ngôn Ngữ Sử Dụng (Tech Stack)
 
-- **Firmware & Embedded:** C/C++ (Arduino IDE / PlatformIO cho ESP32).
-- **Edge AI & Computer Vision:** Python 3, OpenCV, Ultralytics YOLOv8, ONNX Runtime.
+- **Firmware & Embedded RTOS:** C/C++ (Arduino framework / PlatformIO), **FreeRTOS Dual-Core Multitasking** (Tasks Pinned to Cores, Thread-Safe Queues, Semaphores & Mutexes).
+- **Edge AI & Computer Vision:** Python 3, OpenCV, Ultralytics YOLOv8, ONNX Runtime (Tối ưu hóa đa luồng ARM NEON trên Cortex-A76).
 - **Message Broker & IoT Protocol:** Mosquitto MQTT Broker, WebSockets.
 - **Automation & Rule Engine:** Node-RED / Custom Python Event Handler.
 - **Backend API & Database:** Node.js, Express.js, MongoDB / Firebase Realtime.

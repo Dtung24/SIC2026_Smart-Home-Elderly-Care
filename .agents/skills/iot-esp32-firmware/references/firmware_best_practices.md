@@ -1,54 +1,108 @@
-# ESP32 Firmware Development Best Practices
+# ESP32 FreeRTOS Dual-Core Architecture & Best Practices
 
-## 1. Non-Blocking Timing & State Machine
-In mission-critical healthcare systems, blocking functions (`delay()`, `while(!ready)`) cause packet drop and delayed alarms.
+ESP32 contains two Xtensa 32-bit LX6 cores (Core 0 and Core 1). By allocating tasks to separate cores and communicating via **FreeRTOS Queues**, we achieve deterministic real-time responsiveness without network latency interference.
 
-### Standard `millis()` Pattern
+---
+
+## 1. Dual-Core Task Partitioning Strategy
+
+| Core | Task Name | Priority | Stack Size | Purpose |
+| :---: | :--- | :---: | :---: | :--- |
+| **Core 0** | `Task_Network_MQTT` | 2 (Medium) | 4096 bytes | Manages Wi-Fi reconnect, MQTT client loop, and publishes sensor payloads from the Queue. |
+| **Core 0** | `Task_Downlink_Handler` | 3 (High) | 3072 bytes | Processes incoming MQTT downlink commands (e.g. buzzer triggers). |
+| **Core 1** | `Task_Sensor_Read` | 1 (Low-Med) | 3072 bytes | Periodic reading of DHT22 and analog averaging of MQ-2 gas sensor. |
+| **Core 1** | `Task_Motion_ISR` | 4 (Urgent) | 2048 bytes | Handles immediate PIR motion state changes via hardware interrupt and binary semaphore. |
+
+---
+
+## 2. Inter-Task Communication (FreeRTOS Queue)
+
+### Data Structure Definition (`SensorPayload_t`)
 ```cpp
-unsigned long lastSensorRead = 0;
-const unsigned long SENSOR_INTERVAL = 2000; // 2 seconds
+typedef enum {
+  MSG_ENVIRONMENTAL,
+  MSG_MOTION_EVENT,
+  MSG_GAS_EMERGENCY
+} MessageType_t;
 
-void loop() {
-  client.loop(); // Handle incoming MQTT packets
-  
-  unsigned long currentMillis = millis();
-  if (currentMillis - lastSensorRead >= SENSOR_INTERVAL) {
-    lastSensorRead = currentMillis;
-    readAndPublishSensors();
+typedef struct {
+  MessageType_t type;
+  float temperature;
+  float humidity;
+  int gas_raw;
+  bool gas_alert;
+  bool motion_detected;
+  uint32_t timestamp;
+} SensorPayload_t;
+
+QueueHandle_t xSensorQueue = NULL;
+```
+
+### Queue Initialization & Creation
+```cpp
+void setup() {
+  // Create queue with capacity of 10 items
+  xSensorQueue = xQueueCreate(10, sizeof(SensorPayload_t));
+  if (xSensorQueue == NULL) {
+    Serial.println("[ERROR] Failed to create FreeRTOS Queue!");
   }
 }
 ```
 
 ---
 
-## 2. Robust Wi-Fi & MQTT Reconnection
-Use non-blocking exponential backoff or periodic check rather than infinite blocking loops during reconnect.
+## 3. Creating Pinned Tasks (`xTaskCreatePinnedToCore`)
 
 ```cpp
-unsigned long lastReconnectAttempt = 0;
+void setupTasks() {
+  // Network Task on Core 0
+  xTaskCreatePinnedToCore(
+    vTaskNetworkMQTT,      // Task function
+    "Task_Network",        // Name of task
+    4096,                  // Stack size in words
+    NULL,                  // Task input parameter
+    2,                     // Priority of the task (0 = lowest)
+    NULL,                  // Task handle
+    0                      // Core ID: Core 0 (Protocol Core)
+  );
 
-boolean reconnectMQTT() {
-  if (client.connect("ESP32_SensorNode", MQTT_USER, MQTT_PASS, "sic2026/system/status/esp32_01", 1, true, "{\"status\":\"offline\"}")) {
-    // Once connected, publish online status
-    client.publish("sic2026/system/status/esp32_01", "{\"status\":\"online\"}", true);
-    client.subscribe("sic2026/actuators/buzzer/cmd");
-  }
-  return client.connected();
+  // Sensor Task on Core 1
+  xTaskCreatePinnedToCore(
+    vTaskSensorAcquisition,// Task function
+    "Task_Sensors",        // Name of task
+    3072,                  // Stack size in words
+    NULL,                  // Task input parameter
+    1,                     // Priority
+    NULL,                  // Task handle
+    1                      // Core ID: Core 1 (Application Core)
+  );
 }
+```
 
-void checkConnections() {
-  if (WiFi.status() != WL_CONNECTED) {
-    // Non-blocking WiFi reconnect handling
-    WiFi.reconnect();
-    return;
-  }
-  if (!client.connected()) {
-    unsigned long now = millis();
-    if (now - lastReconnectAttempt > 5000) {
-      lastReconnectAttempt = now;
-      if (reconnectMQTT()) {
-        lastReconnectAttempt = 0;
-      }
+---
+
+## 4. Deterministic Periodic Execution (`vTaskDelayUntil`)
+Avoid cumulative drift in periodic sensor measurements by using `vTaskDelayUntil`:
+
+```cpp
+void vTaskSensorAcquisition(void *pvParameters) {
+  TickType_t xLastWakeTime = xTaskGetTickCount();
+  const TickType_t xFrequency = pdMS_TO_TICKS(2000); // 2000ms period
+
+  for (;;) {
+    vTaskDelayUntil(&xLastWakeTime, xFrequency);
+
+    SensorPayload_t data;
+    data.type = MSG_ENVIRONMENTAL;
+    data.temperature = dht.readTemperature();
+    data.humidity = dht.readHumidity();
+    data.gas_raw = readSmoothedMQ2(MQ2_PIN);
+    data.gas_alert = (data.gas_raw > 1200);
+    data.timestamp = millis() / 1000;
+
+    // Send to Queue with 100ms timeout
+    if (xQueueSend(xSensorQueue, &data, pdMS_TO_TICKS(100)) != pdPASS) {
+      Serial.println("[WARN] Sensor Queue Full! Dropped item.");
     }
   }
 }
@@ -56,36 +110,20 @@ void checkConnections() {
 
 ---
 
-## 3. MQ-2 Sensor Calibration & Smoothing
-The MQ-2 requires a burn-in period (preheating). Raw analog values fluctuate; apply a Moving Average Filter (EMA / Window filter) before checking threshold triggers.
+## 5. Hardware Interrupt with FreeRTOS (`xQueueSendFromISR`)
+For instantaneous PIR motion detection:
 
 ```cpp
-#define NUM_SAMPLES 10
-int readSmoothedMQ2(int pin) {
-  long sum = 0;
-  for (int i = 0; i < NUM_SAMPLES; i++) {
-    sum += analogRead(pin);
-    delayMicroseconds(50);
-  }
-  return sum / NUM_SAMPLES;
+SemaphoreHandle_t xMotionSemaphore = NULL;
+
+void IRAM_ATTR pirMotionISR() {
+  BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+  xSemaphoreGiveFromISR(xMotionSemaphore, &xHigherPriorityTaskWoken);
+  portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
 }
 ```
 
 ---
 
-## 4. Watchdog Timer (WDT)
-Always enable ESP32 Hardware Task Watchdog to auto-recover if a memory deadlock occurs:
-```cpp
-#include <esp_task_wdt.h>
-#define WDT_TIMEOUT 8 // 8 seconds timeout
-
-void setup() {
-  esp_task_wdt_init(WDT_TIMEOUT, true); // enable panic so ESP32 restarts
-  esp_task_wdt_add(NULL); // add current thread to WDT watch
-}
-
-void loop() {
-  esp_task_wdt_reset(); // feed the dog
-  // normal operations
-}
-```
+## 6. Thread-Safe Mutex for Shared Actuators
+If multiple tasks control the Buzzer or Status LED, protect the GPIO state with a FreeRTOS Mutex (`xSemaphoreCreateMutex`, `xSemaphoreTake`, `xSemaphoreGive`).

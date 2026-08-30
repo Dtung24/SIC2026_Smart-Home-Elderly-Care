@@ -4,22 +4,26 @@ description: >-
   Expert guide and procedures for developing, debugging, and maintaining ESP32 firmware in the SIC2026 Smart Home Elderly Care project. Use when writing C/C++ (Arduino/PlatformIO) code for sensor nodes (DHT22, MQ-2, PIR HC-SR501), buzzer actuators, WiFi/MQTT reconnection loops, and FreeRTOS task management.
 ---
 
-# ESP32 Firmware Engineering Skill (SIC2026 Elderly Care)
+# ESP32 FreeRTOS Firmware Engineering Skill (SIC2026 Elderly Care)
 
-This skill guides the implementation of rock-solid embedded firmware for ESP32 DevKit V1 microcontrollers communicating over MQTT with the Raspberry Pi 5 Edge Gateway.
+This skill guides the implementation of deterministic, real-time embedded firmware for ESP32 DevKit V1 microcontrollers using **FreeRTOS Dual-Core Multitasking** to communicate over MQTT with the Raspberry Pi 5 Edge Gateway.
 
 ---
 
-## 📌 Architecture & Node Roles
+## 📌 FreeRTOS Dual-Core Task Allocation
 
-The project deploys two dedicated ESP32 nodes:
-1. **Node 1 - Sensor Hub (`node_sensors`)**:
-   - **DHT22** (GPIO 4): Ambient temperature & humidity monitoring.
-   - **MQ-2** (GPIO 34 - ADC1): LPG / Smoke / Gas leakage detection.
-   - **PIR HC-SR501** (GPIO 14): Indoor movement & presence detection.
-2. **Node 2 - Actuator / Alarm (`node_buzzer`)**:
-   - **Active Buzzer** (GPIO 26 / 27): Local high-decibel alarm (85-90 dB).
-   - **Status LED** (GPIO 2): Network & arming status indication.
+To ensure zero latency and prevent networking blocking from affecting mission-critical environmental and fall/motion alerts:
+
+```text
+┌────────────────────────────────────────┐   ┌────────────────────────────────────────┐
+│        Core 0 (Networking Core)        │   │        Core 1 (Perception Core)        │
+├────────────────────────────────────────┤   ├────────────────────────────────────────┤
+│ • Task 1: Wi-Fi Reconnect & MQTT Loop  │   │ • Task 3: Sensor Acquisition (DHT/MQ2) │
+│ • Task 2: MQTT Ingestion & Downlink Cmd│   │ • Task 4: PIR Motion ISR & Fast Event  │
+└───────────────────┬────────────────────┘   └───────────────────▲────────────────────┘
+                    │        📬 FreeRTOS Queue (SensorData_t)    │
+                    └────────────────────────────────────────────┘
+```
 
 ---
 
@@ -27,8 +31,8 @@ The project deploys two dedicated ESP32 nodes:
 
 - **Pinout & MQTT Payloads**: [references/pinout_and_payloads.md](references/pinout_and_payloads.md)
   - Detailed GPIO allocation, voltage divider safety for 5V sensors, and JSON serialization schemas.
-- **Firmware Best Practices**: [references/firmware_best_practices.md](references/firmware_best_practices.md)
-  - Non-blocking `millis()` timing, FreeRTOS tasks, Wi-Fi Auto-reconnect, MQTT Keep-Alive & LWT (Last Will and Testament).
+- **FreeRTOS & Firmware Best Practices**: [references/firmware_best_practices.md](references/firmware_best_practices.md)
+  - `xTaskCreatePinnedToCore`, thread-safe `xQueueSend`/`xQueueReceive`, FreeRTOS Mutex, FreeRTOS Timer & ISR handlers (`xQueueSendFromISR`).
 - **Code Templates**:
   - Sensor Hub: [examples/esp32_sensor_node.ino](examples/esp32_sensor_node.ino)
   - Buzzer Node: [examples/esp32_buzzer_node.ino](examples/esp32_buzzer_node.ino)

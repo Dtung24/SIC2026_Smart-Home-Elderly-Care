@@ -6,7 +6,7 @@ To achieve top tier ranking in the Capstone evaluation, the project aligns with 
 
 ## 1. Technical Complexity & Depth (35%)
 - **Edge AI Implementation**: Effective on-device inference using YOLOv8-pose with ONNX Runtime on Raspberry Pi 5 (ARM Cortex-A76 @ 2.4GHz) achieving 25-30+ FPS without cloud reliance.
-- **Hardware Integration**: Multi-node ESP32 architecture using ADC analog filtering, digital interrupt debounce, and safety voltage divider circuitry.
+- **Embedded RTOS & Hardware Integration**: Multi-node ESP32 architecture using **FreeRTOS Dual-Core Multitasking** (Tasks pinned to Core 0/1, thread-safe Queues, Binary Semaphores for ISRs), ADC analog smoothing, and hardware voltage dividers.
 - **Network Protocol Robustness**: Clean MQTT hierarchical namespace with QoS 1 for alarms, Keep-Alive, and Last Will & Testament (LWT) node status management.
 
 ---
