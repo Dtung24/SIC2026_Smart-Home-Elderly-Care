@@ -1,101 +1,111 @@
-# Node-RED Flows — Automation & Alert System
+# Node-RED Flow — Automation & Alerts (ElderHome AI)
 
-Thư mục này chứa các flow Node-RED phụ trách phần **Rule Engine tự động hóa** và **Cảnh báo đa kênh** (Telegram Bot + Còi báo động) của hệ thống Smart Home Kết Hợp Camera AI Giám Sát & Bảo Vệ Người Cao Tuổi.
+Flow Node-RED chạy trên Raspberry Pi, đóng vai trò "bộ não trung gian" xử lý sự kiện từ Camera AI (té ngã) và các cảm biến (gas, nhiệt độ/độ ẩm), sau đó:
 
-**Phụ trách:** Ngô Gia Bắc — Smart Home & Alert System
+- Bật còi cảnh báo trên ESP32 qua MQTT.
+- Gửi cảnh báo khẩn cấp tới Telegram (kèm ảnh hiện trường nếu là té ngã).
+- Tự huỷ báo động khi camera xác nhận người dùng đã an toàn, hoặc khi có lệnh tắt còi thủ công.
 
----
+File flow: `flow1-automation-alerts-fixed.json`
 
-## 📁 Nội dung thư mục
+## Kiến trúc luồng xử lý
 
-| File | Mô tả |
-|---|---|
-| `flow1-automation-alerts.json` | Flow chính: xử lý té ngã, rò rỉ gas, nhiệt độ/độ ẩm, tự hủy cảnh báo, tắt còi thủ công |
+```
+[Camera AI] --MQTT--> home/camera/fall  ─┬─> function 1 (debounce 60s) ─┬─> mqtt out: home/esp32/alarm ("FALL_ALARM_ON")
+                                          │                              └─> file in (đọc ảnh) → function 2 → Telegram (photo/text)
+                                          │
+[Camera AI] --MQTT--> home/camera/safe ──┴─> function 6 (huỷ báo động trong 5 phút kể từ lúc báo) ─┬─> mqtt out: ALARM_OFF
+                                                                                                     └─> Telegram: "đã xác nhận an toàn"
 
----
+[Cảm biến gas] --MQTT--> home/sensor/gas → switch (status == GAS_LEAK) → function 7 (debounce 60s)
+                                                                            ├─> function 3 → Telegram
+                                                                            └─> function 4 → mqtt out: GAS_ALARM_ON
 
-## 🚀 Cách import flow vào Node-RED
+[DHT22] --MQTT--> home/sensor/dht22 → function 5 (kiểm tra ngưỡng nhiệt độ/độ ẩm + debounce 60s) → Telegram (chỉ nhắc nhở, KHÔNG bật còi)
 
-1. Mở Node-RED, vào menu **☰** (góc trên phải) → **Import**.
-2. Chọn tab **"select a file to import"**, chọn file `flow1-automation-alerts.json`.
-3. Bấm **Import** → flow sẽ xuất hiện trên canvas.
-4. Cần cài đặt sẵn các node package sau (qua Manage Palette): `node-red-contrib-telegrambot`.
-5. Cấu hình lại **Bot Token** và **Chat ID** trong node Telegram sender/config (không lưu trong file export vì lý do bảo mật).
-6. Bấm **Deploy**.
+[App/người thân] --MQTT--> home/esp32/alarm/off → function 8 (reset toàn bộ cooldown) → mqtt out: ALARM_OFF
+```
 
----
+## MQTT Topics
 
-## 📡 Danh sách MQTT Topics đang sử dụng
+### Subscribe (đầu vào)
 
-Các bạn phụ trách Firmware (ESP32) và AI Computer Vision cần publish/subscribe đúng theo format dưới đây để đồng bộ với Node-RED.
-
-### Subscribe (Node-RED lắng nghe)
-
-| Topic | Nguồn gửi | Payload mẫu | Mô tả |
+| Topic | Nguồn gửi | Payload mẫu | Ghi chú |
 |---|---|---|---|
-| `home/camera/fall` | AI Python (Pose Detection) | `{"image_path": "/path/to/snapshot.jpg"}` | Báo phát hiện té ngã kèm đường dẫn ảnh snapshot |
-| `home/camera/safe` | AI Python | `{"status": "SAFE"}` | Báo người đã tự đứng dậy / an toàn, dùng để tự hủy cảnh báo té ngã |
-| `home/sensor/gas` | ESP32 (MQ-2) | `{"status": "GAS_LEAK"}` | Báo phát hiện rò rỉ khí gas vượt ngưỡng |
-| `home/sensor/dht22` | ESP32 (DHT22) | `{"temp": 38, "humidity": 60}` | Dữ liệu nhiệt độ & độ ẩm định kỳ |
-| `home/esp32/alarm/off` | Frontend / Backend | (không cần payload) | Lệnh tắt còi thủ công khi người nhà xác nhận đã xử lý sự cố |
+| `home/camera/fall` | Camera AI | `{ "image_path": "/path/anh.jpg" }` | Đã được AI xác nhận té ngã (qua ngưỡng bất động), Node-RED không xử lý lại logic AI |
+| `home/camera/safe` | Camera AI | bất kỳ | Camera xác nhận người dùng đã đứng dậy/an toàn |
+| `home/sensor/gas` | Cảm biến MQ-2 (qua ESP32) | `{ "status": "GAS_LEAK" }` | Chỉ xử lý khi `status == "GAS_LEAK"` |
+| `home/sensor/dht22` | Cảm biến DHT22 (qua ESP32) | `{ "temp": 36.5, "humidity": 80 }` | |
+| `home/esp32/alarm/off` | App/Web Dashboard | bất kỳ | Lệnh tắt còi thủ công + reset toàn bộ cooldown |
 
-### Publish (Node-RED gửi ra)
+### Publish (đầu ra)
 
-| Topic | Đích nhận | Payload mẫu | Mô tả |
-|---|---|---|---|
-| `home/esp32/alarm` | ESP32 (Buzzer) | `"ALARM_OFF"` hoặc lệnh kích còi | Điều khiển bật/tắt còi báo động |
+| Topic | Payload | Khi nào gửi |
+|---|---|---|
+| `home/esp32/alarm` | `"FALL_ALARM_ON"` / `"GAS_ALARM_ON"` / `"ALARM_OFF"` | Bật/tắt còi ESP32 — chuỗi lệnh cố định, ESP32 firmware phải hiểu đúng 3 giá trị này |
+| Telegram (qua `node-red-contrib-telegrambot`) | `{ chatId, type: "photo"/"message", content, caption }` | Té ngã (kèm ảnh), rò gas, nhiệt độ/độ ẩm bất thường, xác nhận an toàn |
 
-> **Lưu ý:** Ngưỡng cảnh báo nhiệt độ/độ ẩm hiện đặt tại `function 5`: `TEMP_HIGH = 35°C`, `TEMP_LOW = 16°C`, `HUMID_HIGH = 85%`. Có thể chỉnh trực tiếp trong code nếu cần thay đổi ngưỡng thực tế.
+## Ngưỡng cảnh báo (DHT22)
 
----
-
-## 🧠 Cấu trúc xử lý trong flow
-
-```
-home/camera/fall ──► function 1 ──┬──► home/esp32/alarm  (kích còi)
-                                   └──► read file ──► function 2 ──► Telegram sender (gửi ảnh)
-
-home/sensor/gas ──► switch ──► function 7 (Gas Gate - debounce) ──┬──► function 3 ──► Telegram sender
-                                                                    └──► function 4 ──► home/esp32/alarm
-
-home/sensor/dht22 ──► function 5 ──► delay/limit ──► Telegram sender
-
-home/camera/safe ──► function 6 (tự hủy cảnh báo) ──┬──► home/esp32/alarm (tắt còi)
-                                                       └──► Telegram sender (báo an toàn)
-
-home/esp32/alarm/off ──► function 8 (tắt còi thủ công + reset debounce) ──► home/esp32/alarm
-```
-
-### Cơ chế chống spam (Debounce)
-
-- **Fall:** dùng `global.get/set('fallLastAlertTime')`, cooldown 60 giây.
-- **Gas:** dùng `flow.get/set('gasAlertTime')`, cooldown 60 giây, kiểm tra tập trung tại `function 7` (Gas Gate) trước khi tách nhánh Telegram + còi, tránh xung đột giữa 2 nhánh.
-- **DHT22:** dùng node `delay`/`limit` giới hạn tần suất gửi.
-
-### Phân loại & Timestamp
-
-Mỗi message xử lý sự cố đều được gắn:
-```javascript
-msg.topic = "fall" | "gas" | "dht22";
-msg.eventTime = new Date().toISOString();
-```
-Dùng để phân loại log và đo độ trễ phản ứng (mục tiêu < 2 giây) khi tích hợp với Backend API.
-
----
-
-## ✅ Trạng thái test
-
-| Chức năng | Trạng thái |
+| Điều kiện | Ngưỡng |
 |---|---|
-| Kích còi + gửi ảnh khi té ngã | ✅ Đã test |
-| Cảnh báo rò rỉ gas (Telegram + còi) | ✅ Đã test |
-| Cảnh báo nhiệt độ/độ ẩm bất thường | ✅ Đã test |
-| Debounce chống spam (fall & gas) | ✅ Đã test |
-| Tự hủy cảnh báo khi an toàn | ✅ Đã test |
-| Tắt còi thủ công | ✅ Đã test |
+| Nhiệt độ quá cao | ≥ 35°C |
+| Nhiệt độ quá thấp | ≤ 16°C |
+| Độ ẩm cao bất thường | ≥ 85% |
 
-## 🔜 Việc còn lại
+Chỉ báo 1 điều kiện ưu tiên nhất mỗi lần (nhiệt độ cao > nhiệt độ thấp > độ ẩm), không gửi dồn nhiều cảnh báo cùng lúc.
 
-- Tích hợp dữ liệu thật từ AI Computer Vision và ESP32 (hiện đang test bằng node `inject` giả lập).
-- Gửi log sự cố sang Backend API để lưu telemetry (phối hợp với phần Backend).
-- Đo & xác nhận độ trễ phản ứng thực tế < 2 giây bằng `msg.eventTime`.
+## Cơ chế chống spam (debounce/cooldown)
+
+Mỗi luồng cảnh báo dùng 1 biến `global` riêng để chặn gửi lặp lại trong 60 giây:
+
+| Biến global | Dùng bởi |
+|---|---|
+| `fallLastAlertTime` | Té ngã (`function 1`) + điều kiện huỷ báo động (`function 6`, cửa sổ 5 phút) |
+| `gasLastAlertTime` | Rò gas (`function 7`) |
+| `dhtLastAlertTime` | Nhiệt độ/độ ẩm (`function 5`) |
+
+Cả 3 biến được reset về `0` khi có lệnh `home/esp32/alarm/off` (`function 8`), hoặc riêng `fallLastAlertTime` được reset khi camera báo an toàn trong vòng 5 phút (`function 6`).
+
+## Cấu hình bắt buộc trước khi chạy
+
+1. **MQTT broker** (node `mqtt-broker`): mặc định trỏ tới `localhost:1883` — đúng cho Mosquitto chạy chung trên Pi. Đổi nếu broker đặt nơi khác.
+2. **Telegram bot** (node `telegram bot`, package `node-red-contrib-telegrambot`): cần cấu hình `botname`/token bot thật trước khi deploy — hiện `usernames`/`chatids` đang để trống ở cấp bot, `chatId` được set cứng `"8823676499"` trong từng function gửi tin. Nếu thêm người nhận, sửa tại các node: `function 2`, `function 3`, `function 5`, `function 6`.
+3. **Đường dẫn ảnh fallback** (`function 1`): mặc định `/opt/smart-home/assets/fallback_fall.jpg` — chỉ dùng khi payload té ngã không kèm `image_path`. Cần đảm bảo file này tồn tại trên Pi, hoặc để trống vì `function 2` đã có nhánh xử lý khi đọc ảnh lỗi (gửi cảnh báo dạng text thay vì photo).
+4. **Module cần cài trong Node-RED**: `node-red-contrib-telegrambot` (v19.0.1, xem `global-config`).
+
+## Cài đặt / Import
+
+1. Mở Node-RED (`http://<pi-ip>:1880`).
+2. Menu ☰ → **Import** → chọn file `flow1-automation-alerts-fixed.json`.
+3. Mở node **telegram bot**, nhập token bot thật.
+4. Kiểm tra node **mqtt-broker** trỏ đúng broker đang chạy.
+5. **Deploy**.
+
+## Test nhanh bằng `mosquitto_pub`
+
+```bash
+# Giả lập té ngã
+mosquitto_pub -h localhost -t home/camera/fall -m '{"image_path":"/opt/smart-home/assets/fallback_fall.jpg"}'
+
+# Giả lập rò gas
+mosquitto_pub -h localhost -t home/sensor/gas -m '{"status":"GAS_LEAK"}'
+
+# Giả lập nhiệt độ cao
+mosquitto_pub -h localhost -t home/sensor/dht22 -m '{"temp":37,"humidity":60}'
+
+# Xác nhận an toàn (trong vòng 5 phút sau báo té ngã)
+mosquitto_pub -h localhost -t home/camera/safe -m '{}'
+
+# Tắt còi thủ công
+mosquitto_pub -h localhost -t home/esp32/alarm/off -m '{}'
+```
+
+Theo dõi kết quả qua tab **mqtt out `home/esp32/alarm`** (debug node nếu có) và Telegram.
+
+## Giới hạn hiện tại / việc cần làm tiếp
+
+- Flow này **chưa gửi dữ liệu về Backend (Node.js + MongoDB) / Web Dashboard** — hiện chỉ có 2 đích: còi ESP32 và Telegram. Cần thêm nhánh publish sang topic dạng `home/{room}/alert/{type}` và `home/{room}/sensor/{type}` nếu muốn tích hợp với backend (xem flow mở rộng `flow1-automation-alerts-v2-backend-bridge.json`).
+- Chưa có cảm biến chuyển động (PIR/motion) trong flow.
+- `chatId` Telegram đang hardcode ở nhiều nơi — nên gom vào 1 biến `global`/`env` dùng chung để dễ bảo trì.
+- Còi ESP32 dùng chung 1 topic `home/esp32/alarm` cho cả té ngã và gas — firmware ESP32 cần phân biệt được các lệnh `FALL_ALARM_ON` / `GAS_ALARM_ON` / `ALARM_OFF` nếu muốn có kiểu còi/đèn khác nhau cho từng loại sự cố.
