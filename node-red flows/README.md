@@ -105,7 +105,7 @@ Theo dõi kết quả qua tab **mqtt out `home/esp32/alarm`** (debug node nếu 
 
 ## Giới hạn hiện tại / việc cần làm tiếp
 
-- Flow này **chưa gửi dữ liệu về Backend (Node.js + MongoDB) / Web Dashboard** — hiện chỉ có 2 đích: còi ESP32 và Telegram. Cần thêm nhánh publish sang topic dạng `home/{room}/alert/{type}` và `home/{room}/sensor/{type}` nếu muốn tích hợp với backend (xem flow mở rộng `flow1-automation-alerts-v2-backend-bridge.json`).
+- Flow này **chưa gửi dữ liệu về Backend (Node.js + MongoDB) / Web Dashboard** — hiện chỉ có 2 đích: còi ESP32 và Telegram.
 - Chưa có cảm biến chuyển động (PIR/motion) trong flow.
 - `chatId` Telegram đang hardcode ở nhiều nơi — nên gom vào 1 biến `global`/`env` dùng chung để dễ bảo trì.
 - Còi ESP32 dùng chung 1 topic `home/esp32/alarm` cho cả té ngã và gas — firmware ESP32 cần phân biệt được các lệnh `FALL_ALARM_ON` / `GAS_ALARM_ON` / `ALARM_OFF` nếu muốn có kiểu còi/đèn khác nhau cho từng loại sự cố.
