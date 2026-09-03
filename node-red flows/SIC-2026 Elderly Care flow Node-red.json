@@ -1,0 +1,403 @@
+[
+    {
+        "id": "33e65cd248728010",
+        "type": "tab",
+        "label": "Flow 2",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "17b5a0753d29f815",
+        "type": "mqtt in",
+        "z": "33e65cd248728010",
+        "name": "Camera AI: fall",
+        "topic": "home/camera/fall",
+        "qos": "2",
+        "datatype": "json",
+        "broker": "6909036c8ac8a190",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 160,
+        "y": 140,
+        "wires": [
+            [
+                "a36f2c47f49630bb"
+            ]
+        ]
+    },
+    {
+        "id": "a658f5b92322d8b1",
+        "type": "mqtt in",
+        "z": "33e65cd248728010",
+        "name": "ESP32 PIR: fall (backup)",
+        "topic": "home/livingroom/alert/fall",
+        "qos": "1",
+        "datatype": "json",
+        "broker": "6909036c8ac8a190",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 170,
+        "y": 190,
+        "wires": [
+            [
+                "a36f2c47f49630bb"
+            ]
+        ]
+    },
+    {
+        "id": "a36f2c47f49630bb",
+        "type": "function",
+        "z": "33e65cd248728010",
+        "name": "function 1 (fall - debounce + build)",
+        "func": "// ===== DEBOUNCE (dung chung cho ca 2 nguon: Camera AI va ESP32 PIR) =====\nvar lastAlertTime = global.get('fallLastAlertTime') || 0;\nvar now = Date.now();\nvar COOLDOWN = 60 * 1000; // 60 giay\n\nif (lastAlertTime !== 0 && (now - lastAlertTime) < COOLDOWN) {\n    return null; // dang cooldown, chan (vd: ESP32 PIR bao sau khi Camera AI da bao roi)\n}\n\nglobal.set('fallLastAlertTime', now);\n\nmsg.topic = \"fall\";\nmsg.eventTime = new Date().toISOString();\n\n// Camera AI (nguyen/mqtt_client.py) gui truong \"image_path\" (duong dan tuyet doi tren\n// chinh may chay AI). ESP32 PIR (khang/main.cpp) KHONG kem anh -> se roi vao nhanh\n// \"khong doc duoc file\" o node file-in phia sau, va function 2 se gui canh bao dang text.\nif (msg.payload && msg.payload.image_path) {\n    msg.filename = msg.payload.image_path;\n} else {\n    msg.filename = \"/opt/smart-home/assets/fallback_fall.jpg\"; // placeholder, it dung toi\n}\n\n// Lenh gui cho ESP32 bat coi tu xa.\n// LUU Y QUAN TRONG: firmware ESP32 hien tai (khang/src/main.cpp) KHONG subscribe bat ky\n// topic lenh nao - coi vat ly da tu dong bat/tat theo nguong PIR/DHT/Gas cuc bo cua no.\n// Message nay hien khong co tac dung gi, chi giu lai de san sang khi firmware duoc\n// bo sung mqttClient.subscribe(...) + callback dieu khien coi.\nmsg.payload = \"FALL_ALARM_ON\";\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 480,
+        "y": 160,
+        "wires": [
+            [
+                "3f2dfa22e50eda38",
+                "89158828a750af50"
+            ]
+        ]
+    },
+    {
+        "id": "3f2dfa22e50eda38",
+        "type": "file in",
+        "z": "33e65cd248728010",
+        "name": "",
+        "filename": "filename",
+        "filenameType": "msg",
+        "format": "",
+        "chunk": false,
+        "sendError": true,
+        "encoding": "none",
+        "allProps": false,
+        "x": 600,
+        "y": 240,
+        "wires": [
+            [
+                "e84ed911e06832f5"
+            ]
+        ]
+    },
+    {
+        "id": "e84ed911e06832f5",
+        "type": "function",
+        "z": "33e65cd248728010",
+        "name": "function 2 (build Telegram - fall)",
+        "func": "if (msg.error) {\n    // Khong doc duoc anh (AI chua kip luu file, ESP32 PIR khong co anh, sai duong dan...)\n    msg.payload = {\n        chatId: \"8823676499\",\n        type: \"message\",\n        content: \"CANH BAO TE NGA KHAN CAP! (Khong lay duoc anh hien truong)\"\n    };\n} else {\n    var imageBuffer = msg.payload;\n    msg.payload = {\n        chatId: \"8823676499\",\n        type: \"photo\",\n        content: imageBuffer,\n        caption: \"CANH BAO TE NGA KHAN CAP!\"\n    };\n}\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 850,
+        "y": 240,
+        "wires": [
+            [
+                "5c4354181d37c3dd"
+            ]
+        ]
+    },
+    {
+        "id": "5c4354181d37c3dd",
+        "type": "telegram sender",
+        "z": "33e65cd248728010",
+        "name": "",
+        "bot": "1c29f8f8041cfec0",
+        "haserroroutput": false,
+        "outputs": 1,
+        "x": 1220,
+        "y": 500,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "89158828a750af50",
+        "type": "mqtt out",
+        "z": "33e65cd248728010",
+        "name": "ESP32 alarm cmd ",
+        "topic": "home/esp32/alarm",
+        "qos": "",
+        "retain": "",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "6909036c8ac8a190",
+        "x": 1190,
+        "y": 160,
+        "wires": []
+    },
+    {
+        "id": "019e3fc00d3cd70b",
+        "type": "mqtt out",
+        "z": "33e65cd248728010",
+        "name": "To Backend (Dong) - dynamic topic",
+        "topic": "",
+        "qos": "1",
+        "retain": "",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "6909036c8ac8a190",
+        "x": 1220,
+        "y": 380,
+        "wires": []
+    },
+    {
+        "id": "9967390ebd1c87ef",
+        "type": "mqtt in",
+        "z": "33e65cd248728010",
+        "name": "ESP32: telemetry (all rooms)",
+        "topic": "home/+/telemetry",
+        "qos": "1",
+        "datatype": "json",
+        "broker": "6909036c8ac8a190",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 170,
+        "y": 360,
+        "wires": [
+            [
+                "59f6960b49d0c4be",
+                "cf89281fc79d65d2",
+                "283425bb9948fc23"
+            ]
+        ]
+    },
+    {
+        "id": "59f6960b49d0c4be",
+        "type": "function",
+        "z": "33e65cd248728010",
+        "name": "Bridge: telemetry -> Backend",
+        "func": "// ESP32 (Khang) gui gop tren 1 topic: home/{room}/telemetry, payload:\n// { room, sensorType, value, unit, timestamp(millis noi bo, KHONG phai wall-clock!) }\n// Backend (Dong) lai doc topic dang: home/{room}/sensor/{sensorType}\n// -> node nay lam cau noi, dong thoi tu tao timestamp that (server-side) vi\n// timestamp cua ESP32 la millis() ke tu luc boot, khong dung de luu Mongo (Date).\nvar data = msg.payload || {};\nvar room = data.room;\nvar sensorType = data.sensorType;\nif (!room || !sensorType) { return null; }\n\nreturn {\n    topic: \"home/\" + room + \"/sensor/\" + sensorType,\n    payload: {\n        value: data.value,\n        unit: data.unit,\n        // Firmware ESP32 hien CHUA co truong deviceId rieng (Telemetry.js dang required).\n        // Tam gan gia tri mac dinh - de nghi Khang bo sung ID that (vd theo MAC) trong firmware.\n        deviceId: data.deviceId || (\"esp32-\" + room),\n        timestamp: new Date().toISOString()\n    }\n};",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 490,
+        "y": 330,
+        "wires": [
+            [
+                "019e3fc00d3cd70b"
+            ]
+        ]
+    },
+    {
+        "id": "cf89281fc79d65d2",
+        "type": "function",
+        "z": "33e65cd248728010",
+        "name": "Gas: nguong + debounce -> Telegram/Backend",
+        "func": "// Firmware ESP32 KHONG gui canh bao gas rieng (khong co topic/status GAS_LEAK nao ca) -\n// no chi tu hu coi cuc bo khi gas_kitchen > 2200. Node nay tu suy ra canh bao tu telemetry tho.\nvar data = msg.payload || {};\nif (data.sensorType !== \"gas\") { return null; }\n\nvar GAS_THRESHOLD = 2200; // PHAI KHOP voi nguong dang dung trong khang/src/main.cpp\nif (data.value === undefined || data.value === null || data.value <= GAS_THRESHOLD) { return null; }\n\nif (typeof global.gasLastAlertTime === 'undefined') { global.gasLastAlertTime = 0; }\nvar now = Date.now();\nvar COOLDOWN = 60 * 1000;\nif (global.gasLastAlertTime !== 0 && (now - global.gasLastAlertTime) < COOLDOWN) {\n    return null; // dang cooldown\n}\nglobal.gasLastAlertTime = now;\n\nvar room = data.room || \"kitchen\";\nvar eventTime = new Date().toISOString();\n\nvar telegramMsg = {\n    payload: {\n        chatId: \"8823676499\",\n        type: \"message\",\n        content: \"🚨 CẢNH BÁO KHẨN CẤP: Phát hiện rò rỉ khí gas tại \" + room +\n                 \" (giá trị: \" + data.value + \"). Lúc \" + new Date().toLocaleTimeString('vi-VN')\n    }\n};\n\nvar backendMsg = {\n    topic: \"home/\" + room + \"/alert/gas\",\n    payload: {\n        room: room,\n        type: \"gas\",\n        deviceId: data.deviceId || (\"esp32-\" + room),\n        detected: true,\n        severity: \"critical\",\n        timestamp: eventTime\n    }\n};\n\nvar buzzerMsg = {\n    // Xem ghi chu o function 1: topic nay hien khong co tac dung voi firmware hien tai.\n    topic: \"home/esp32/alarm\",\n    payload: \"GAS_ALARM_ON\"\n};\n\nreturn [telegramMsg, backendMsg, buzzerMsg];",
+        "outputs": 3,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 560,
+        "y": 400,
+        "wires": [
+            [
+                "5c4354181d37c3dd"
+            ],
+            [
+                "019e3fc00d3cd70b"
+            ],
+            [
+                "89158828a750af50"
+            ]
+        ]
+    },
+    {
+        "id": "283425bb9948fc23",
+        "type": "function",
+        "z": "33e65cd248728010",
+        "name": "DHT: nguong + debounce -> Telegram",
+        "func": "// ESP32 gui temperature va humidity la 2 message RIENG BIET (khac ban cu gop 1 message)\n// va co 2 cam bien DHT o 2 phong (livingroom, bedroom) -> can cooldown theo TUNG phong.\nvar data = msg.payload || {};\nif (data.sensorType !== \"temperature\" && data.sensorType !== \"humidity\") { return null; }\n\nvar room = data.room || \"unknown\";\nvar value = data.value;\n\nvar TEMP_FIRE = 40;  // KHOP nguong \"canh_bao_chay\" trong khang/src/main.cpp (coi da tu hu)\nvar TEMP_HIGH = 35;\nvar TEMP_LOW = 16;\nvar HUMID_HIGH = 85;\n\nvar alert = null;\nif (data.sensorType === \"temperature\") {\n    if (value >= TEMP_FIRE) {\n        alert = \"🔥 NGUY CƠ QUÁ NHIỆT tại \" + room + \": \" + value + \"°C. Còi vật lý đã tự kích hoạt, kiểm tra ngay!\";\n    } else if (value >= TEMP_HIGH) {\n        alert = \"⚠️ Nhiệt độ \" + room + \" quá cao: \" + value + \"°C. Kiểm tra điều hòa/quạt cho người già.\";\n    } else if (value <= TEMP_LOW) {\n        alert = \"⚠️ Nhiệt độ \" + room + \" quá thấp: \" + value + \"°C. Cần giữ ấm cho người già.\";\n    }\n} else if (data.sensorType === \"humidity\") {\n    if (value >= HUMID_HIGH) {\n        alert = \"⚠️ Độ ẩm \" + room + \" cao bất thường: \" + value + \"%.\";\n    }\n}\n\nif (!alert) { return null; }\n\nvar key = \"dhtLastAlertTime_\" + room;\nvar last = global.get(key) || 0;\nvar now = Date.now();\nvar COOLDOWN = 60 * 1000;\nif (last !== 0 && (now - last) < COOLDOWN) { return null; }\nglobal.set(key, now);\n\n// Ghi chu: chi gui Telegram, KHONG tao Incident tren Backend, vi contract hien tai giua\n// Backend (Dong) va Frontend (Thanh) chi ho tro Incident.type la 'fall' | 'gas' (xem types.ts).\nreturn {\n    payload: {\n        chatId: \"8823676499\",\n        type: \"message\",\n        content: alert\n    }\n};",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 490,
+        "y": 470,
+        "wires": [
+            [
+                "5c4354181d37c3dd"
+            ]
+        ]
+    },
+    {
+        "id": "c597a171e7de584b",
+        "type": "mqtt in",
+        "z": "33e65cd248728010",
+        "name": "Camera AI: safe",
+        "topic": "home/camera/safe",
+        "qos": "2",
+        "datatype": "json",
+        "broker": "6909036c8ac8a190",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 160,
+        "y": 560,
+        "wires": [
+            [
+                "6bc583e4cebf3d3e"
+            ]
+        ]
+    },
+    {
+        "id": "6bc583e4cebf3d3e",
+        "type": "function",
+        "z": "33e65cd248728010",
+        "name": "function 6 (huy bao dong khi an toan)",
+        "func": "var lastAlertTime = global.get('fallLastAlertTime') || 0;\nvar now = Date.now();\n\nif (lastAlertTime === 0 || (now - lastAlertTime) > 5 * 60 * 1000) {\n    return null;\n}\n\nglobal.set('fallLastAlertTime', 0);\n\nvar alarmMsg = { topic: \"home/esp32/alarm\", payload: \"ALARM_OFF\" };\nvar telegramMsg = {\n    payload: {\n        chatId: \"8823676499\",\n        type: \"message\",\n        content: \"✅ Đã xác nhận an toàn. Báo động té ngã tự hủy.\"\n    }\n};\nreturn [alarmMsg, telegramMsg];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 510,
+        "y": 560,
+        "wires": [
+            [
+                "89158828a750af50"
+            ],
+            [
+                "5c4354181d37c3dd"
+            ]
+        ]
+    },
+    {
+        "id": "3f765712c02beb0f",
+        "type": "mqtt in",
+        "z": "33e65cd248728010",
+        "name": "App: tat coi thu cong",
+        "topic": "home/esp32/alarm/off",
+        "qos": "2",
+        "datatype": "json",
+        "broker": "6909036c8ac8a190",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 170,
+        "y": 640,
+        "wires": [
+            [
+                "8b5d875024912c85"
+            ]
+        ]
+    },
+    {
+        "id": "8b5d875024912c85",
+        "type": "function",
+        "z": "33e65cd248728010",
+        "name": "function 8 (reset cooldown, tat coi)",
+        "func": "global.set('fallLastAlertTime', 0);\nglobal.set('gasLastAlertTime', 0);\nglobal.set('dhtLastAlertTime_livingroom', 0);\nglobal.set('dhtLastAlertTime_bedroom', 0);\n\n// LUU Y: firmware ESP32 hien KHONG subscribe topic nay -> khong co tac dung tat coi that.\nmsg.topic = \"home/esp32/alarm\";\nmsg.payload = \"ALARM_OFF\";\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 520,
+        "y": 640,
+        "wires": [
+            [
+                "89158828a750af50"
+            ]
+        ]
+    },
+    {
+        "id": "6909036c8ac8a190",
+        "type": "mqtt-broker",
+        "name": "",
+        "broker": "localhost",
+        "port": 1883,
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": 4,
+        "keepalive": 60,
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "1c29f8f8041cfec0",
+        "type": "telegram bot",
+        "botname": "ElderlyCare_SIC bot",
+        "usernames": "",
+        "chatids": "",
+        "baseapiurl": "",
+        "testenvironment": false,
+        "updatemode": "polling",
+        "pollinterval": 300,
+        "usesocks": false,
+        "sockshost": "",
+        "socksprotocol": "socks5",
+        "socksport": 6667,
+        "socksusername": "anonymous",
+        "sockspassword": "",
+        "bothost": "",
+        "botpath": "",
+        "localbothost": "0.0.0.0",
+        "localbotport": 8443,
+        "publicbotport": 8443,
+        "privatekey": "",
+        "certificate": "",
+        "useselfsignedcertificate": false,
+        "sslterminated": false,
+        "verboselogging": false
+    },
+    {
+        "id": "dd1e3877cbf542f0",
+        "type": "global-config",
+        "env": [],
+        "modules": {
+            "node-red-contrib-telegrambot": "19.0.1"
+        }
+    }
+]
