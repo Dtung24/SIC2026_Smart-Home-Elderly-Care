@@ -1,0 +1,10 @@
+{
+  "name": "Remix Remix ElderHome AI - Tâm An Home",
+  "description": "Hệ thống giám sát an toàn thông minh cho người cao tuổi với camera AI, cảm biến khí gas, chất lượng không khí, nhiệt độ độ ẩm và nút gọi khẩn cấp.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
