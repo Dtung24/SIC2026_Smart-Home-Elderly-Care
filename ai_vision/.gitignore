@@ -22,3 +22,7 @@ Thumbs.db
 .DS_Store
 # Original PyTorch model kept locally for comparison
 *.pt
+
+# Local test files
+record_test_video.py
+test_fall.mp4

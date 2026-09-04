@@ -7,11 +7,11 @@ import os
 from pathlib import Path
 from datetime import datetime
 from ultralytics import YOLO
-
+from dotenv import load_dotenv
 from stream_server import update_stream_frame, start_stream_server
 from mqtt_client import connect_mqtt, publish_fall, publish_safe, disconnect_mqtt
 
-
+load_dotenv()
 # ============================================================
 # 1. CẤU HÌNH
 # ============================================================
@@ -23,6 +23,7 @@ SNAPSHOT_FOLDER = BASE_DIR / "snapshots"
 SNAPSHOT_FOLDER.mkdir(parents=True, exist_ok=True)
 
 CAMERA_INDEX = int(os.getenv("CAMERA_INDEX", "0"))
+TEST_VIDEO = os.getenv("TEST_VIDEO", "")
 
 IMG_SIZE = 320
 
@@ -62,21 +63,42 @@ model = YOLO(str(MODEL_PATH))
 # ============================================================
 # 3. MỞ CAMERA
 # ============================================================
-
+using_test_video = False
 cap = cv2.VideoCapture(CAMERA_INDEX)
 
-# Dùng MJPG để camera USB chạy ổn định hơn
-cap.set(
-    cv2.CAP_PROP_FOURCC,
-    cv2.VideoWriter_fourcc(*"MJPG")
-)
+if cap.isOpened():
+    print(f"[CAMERA] Dang dung camera index {CAMERA_INDEX}")
 
-cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH)
-cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT)
-cap.set(cv2.CAP_PROP_FPS, CAMERA_FPS)
+    # Dùng MJPG để camera USB chạy ổn định hơn
+    cap.set(
+        cv2.CAP_PROP_FOURCC,
+        cv2.VideoWriter_fourcc(*"MJPG")
+    )
 
-if not cap.isOpened():
-    raise RuntimeError(f"Khong mo duoc camera index {CAMERA_INDEX}")
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT)
+    cap.set(cv2.CAP_PROP_FPS, CAMERA_FPS)
+
+elif TEST_VIDEO:
+    print(
+        f"[CAMERA] Khong mo duoc camera index {CAMERA_INDEX}. "
+        f"Chuyen sang video test: {TEST_VIDEO}"
+    )
+
+    cap.release()
+    cap = cv2.VideoCapture(TEST_VIDEO)
+
+    if not cap.isOpened():
+        raise RuntimeError(
+            f"Khong mo duoc camera va cung khong mo duoc video test: {TEST_VIDEO}"
+        )
+    using_test_video = True
+
+else:
+    raise RuntimeError(
+        f"Khong mo duoc camera index {CAMERA_INDEX}. "
+        "Hay ket noi camera hoac dat TEST_VIDEO trong file .env"
+    )
 
 
 # ============================================================
@@ -98,11 +120,25 @@ def camera_reader():
         ret, frame = cap.read()
 
         if not ret:
+            # Nếu đang dùng video test thì chạy lại từ đầu video
+            if using_test_video:
+                cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                time.sleep(0.01)
+                continue
+
+            # Nếu là camera thật thì thử đọc lại frame tiếp theo
             time.sleep(0.01)
             continue
 
         with latest_frame_lock:
             latest_frame = frame
+
+        # Giữ video test chạy gần đúng tốc độ gốc
+        if using_test_video:
+            video_fps = cap.get(cv2.CAP_PROP_FPS)
+
+            if video_fps > 0:
+                time.sleep(1 / video_fps)
 
 
 camera_thread = threading.Thread(

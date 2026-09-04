@@ -4,7 +4,10 @@ from datetime import datetime
 from pathlib import Path
 
 import paho.mqtt.client as mqtt
+from dotenv import load_dotenv
 
+# Đọc biến môi trường từ file .env nếu có
+load_dotenv()
 
 # ============================================================
 # CẤU HÌNH MQTT
