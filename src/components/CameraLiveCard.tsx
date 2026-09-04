@@ -77,7 +77,7 @@ export const CameraLiveCard: React.FC<CameraLiveCardProps> = ({
       {/* Camera Live Stream Viewport */}
       <div className="relative w-full aspect-video sm:aspect-[16/10] rounded-2xl overflow-hidden bg-slate-900 border border-slate-200/80 shadow-inner group">
         <img
-          src={livingRoom.imageUrl || 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80'}
+          src={`http://${window.location.hostname}:8000/video_feed`}
           alt="Camera giám sát Phòng Khách"
           className={`w-full h-full object-cover transition-all duration-300 ${isRefreshing ? 'opacity-50' : 'opacity-90'}`}
           referrerPolicy="no-referrer"
