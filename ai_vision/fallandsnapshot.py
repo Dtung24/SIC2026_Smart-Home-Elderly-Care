@@ -34,13 +34,13 @@ CAMERA_FPS = 30
 # Fall Detection V1
 ANGLE_THRESHOLD = 60
 RATIO_THRESHOLD = 1.2
-FALL_CONFIRM_TIME = 0.8
+FALL_CONFIRM_TIME = 1.0
 KEYPOINT_CONF_THRESHOLD = 0.3
 
 # Xác nhận người đã an toàn trở lại
 SAFE_CONFIRM_TIME = 2.0
-SAFE_ANGLE_THRESHOLD = 45
-SAFE_RATIO_THRESHOLD = 1.0
+SAFE_ANGLE_THRESHOLD = 35
+SAFE_RATIO_THRESHOLD = 0.8
 
 # Laptop để true để hiện cửa sổ OpenCV
 # Sau này Raspberry Pi chạy headless có thể đổi thành false
