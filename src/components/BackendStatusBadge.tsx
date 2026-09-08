@@ -73,7 +73,7 @@ export const BackendStatusBadge: React.FC = () => {
           <>
             <span className="w-2 h-2 rounded-full bg-amber-400"></span>
             <WifiOff className="w-3.5 h-3.5 text-slate-500" />
-            <span className="truncate max-w-[120px] sm:max-w-[180px]">Backend: 192.168.1.8:3000</span>
+            <span className="truncate max-w-[120px] sm:max-w-[180px]">Backend: {currentUrl.replace(/^http:\/\//, '')}</span>
           </>
         )}
       </button>
