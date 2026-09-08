@@ -68,7 +68,26 @@ export const ClimateCard: React.FC<ClimateCardProps> = ({
               <Home className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Khách</span>
             </button>
-           
+            <button
+              onClick={() => onSelectRoom('kitchen')}
+              title="Nhà Bếp"
+              className={`p-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
+                selectedRoomId === 'kitchen' ? 'bg-white text-[#003f87] shadow-xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Utensils className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Bếp</span>
+            </button>
+            <button
+              onClick={() => onSelectRoom('bedroom')}
+              title="Phòng Ngủ"
+              className={`p-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
+                selectedRoomId === 'bedroom' ? 'bg-white text-[#003f87] shadow-xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <BedDouble className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Ngủ</span>
+            </button>
           </div>
         )}
       </div>

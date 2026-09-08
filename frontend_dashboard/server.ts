@@ -269,7 +269,6 @@ async function startServer() {
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`ElderHome AI Server running on:`);
     console.log(`  > Local:   http://localhost:${PORT}`);
-    console.log(`  > Network: http://127.0.0.1:${PORT}`);
   });
 }
 startServer();
