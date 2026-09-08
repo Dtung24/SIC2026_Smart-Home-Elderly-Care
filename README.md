@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # 🏠 Hệ Thống Smart Home Kết Hợp Camera AI Giám Sát & Bảo Vệ Người Cao Tuổi
 ### *(Elderly Care Smart Home & Computer Vision AI Ecosystem)*
 
