@@ -1,4 +1,7 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> ffbf34c9b1dfdcff5416ecf6d224d3eb28101675
 # 🏠 Hệ Thống Smart Home Kết Hợp Camera AI Giám Sát & Bảo Vệ Người Cao Tuổi
 ### *(Elderly Care Smart Home & Computer Vision AI Ecosystem)*
 
@@ -238,4 +241,8 @@ npm start
 ---
 
 ## 📜 Bản Quyền & Giấy Phép (License)
+<<<<<<< HEAD
 Dự án được thực hiện phục vụ học tập và nghiên cứu trong khuôn khổ **Samsung Innovation Campus 2026**. Mã nguồn được phân phối dưới giấy phép [MIT License](LICENSE).
+=======
+Dự án được thực hiện phục vụ học tập và nghiên cứu trong khuôn khổ **Samsung Innovation Campus 2026**. Mã nguồn được phân phối dưới giấy phép [MIT License](LICENSE).
+>>>>>>> ffbf34c9b1dfdcff5416ecf6d224d3eb28101675

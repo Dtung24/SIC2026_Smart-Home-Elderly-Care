@@ -1,0 +1,403 @@
+[
+    {
+        "id": "33e65cd248728010",
+        "type": "tab",
+        "label": "Flow 2",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "17b5a0753d29f815",
+        "type": "mqtt in",
+        "z": "33e65cd248728010",
+        "name": "Camera AI: fall",
+        "topic": "home/camera/fall",
+        "qos": "2",
+        "datatype": "json",
+        "broker": "6909036c8ac8a190",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 160,
+        "y": 140,
+        "wires": [
+            [
+                "a36f2c47f49630bb"
+            ]
+        ]
+    },
+    {
+        "id": "a658f5b92322d8b1",
+        "type": "mqtt in",
+        "z": "33e65cd248728010",
+        "name": "ESP32 PIR: fall (backup)",
+        "topic": "home/livingroom/alert/fall",
+        "qos": "1",
+        "datatype": "json",
+        "broker": "6909036c8ac8a190",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 170,
+        "y": 190,
+        "wires": [
+            [
+                "a36f2c47f49630bb"
+            ]
+        ]
+    },
+    {
+        "id": "a36f2c47f49630bb",
+        "type": "function",
+        "z": "33e65cd248728010",
+        "name": "function1 (fall - debounce + build)",
+        "func": "var lastAlertTime = global.get('fallLastAlertTime') || 0;\nvar now = Date.now();\nvar COOLDOWN = 60 * 1000; // 60 giay\n\nif (lastAlertTime !== 0 && (now - lastAlertTime) < COOLDOWN) {\n    return null; \n}\n\nglobal.set('fallLastAlertTime', now);\n\nmsg.topic = \"fall\";\nmsg.eventTime = new Date().toISOString();\n\nif (msg.payload && msg.payload.image_path) {\n    msg.filename = msg.payload.image_path;\n} else {\n    msg.filename = \"/opt/smart-home/assets/fallback_fall.jpg\"; // placeholder, it dung toi\n}\n\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 480,
+        "y": 160,
+        "wires": [
+            [
+                "3f2dfa22e50eda38",
+                "89158828a750af50"
+            ]
+        ]
+    },
+    {
+        "id": "3f2dfa22e50eda38",
+        "type": "file in",
+        "z": "33e65cd248728010",
+        "name": "",
+        "filename": "filename",
+        "filenameType": "msg",
+        "format": "",
+        "chunk": false,
+        "sendError": true,
+        "encoding": "none",
+        "allProps": false,
+        "x": 640,
+        "y": 240,
+        "wires": [
+            [
+                "e84ed911e06832f5"
+            ]
+        ]
+    },
+    {
+        "id": "e84ed911e06832f5",
+        "type": "function",
+        "z": "33e65cd248728010",
+        "name": "function 2 (build Telegram - fall)",
+        "func": "if (msg.error) {\n    msg.payload = {\n        chatId: \"8823676499\",\n        type: \"message\",\n        content: \"CANH BAO TE NGA KHAN CAP! (Khong lay duoc anh hien truong)\"\n    };\n} else {\n    var imageBuffer = msg.payload;\n    msg.payload = {\n        chatId: \"8823676499\",\n        type: \"photo\",\n        content: imageBuffer,\n        caption: \"CANH BAO TE NGA KHAN CAP!\"\n    };\n}\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 870,
+        "y": 240,
+        "wires": [
+            [
+                "5c4354181d37c3dd"
+            ]
+        ]
+    },
+    {
+        "id": "5c4354181d37c3dd",
+        "type": "telegram sender",
+        "z": "33e65cd248728010",
+        "name": "",
+        "bot": "1c29f8f8041cfec0",
+        "haserroroutput": false,
+        "outputs": 1,
+        "x": 1220,
+        "y": 500,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "89158828a750af50",
+        "type": "mqtt out",
+        "z": "33e65cd248728010",
+        "name": "ESP32 alarm cmd ",
+        "topic": "home/esp32/alarm",
+        "qos": "",
+        "retain": "",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "6909036c8ac8a190",
+        "x": 1190,
+        "y": 160,
+        "wires": []
+    },
+    {
+        "id": "019e3fc00d3cd70b",
+        "type": "mqtt out",
+        "z": "33e65cd248728010",
+        "name": "To Backend (Dong) - dynamic topic",
+        "topic": "",
+        "qos": "1",
+        "retain": "",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "6909036c8ac8a190",
+        "x": 1220,
+        "y": 380,
+        "wires": []
+    },
+    {
+        "id": "9967390ebd1c87ef",
+        "type": "mqtt in",
+        "z": "33e65cd248728010",
+        "name": "ESP32: telemetry (all rooms)",
+        "topic": "home/+/telemetry",
+        "qos": "1",
+        "datatype": "json",
+        "broker": "6909036c8ac8a190",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 170,
+        "y": 360,
+        "wires": [
+            [
+                "59f6960b49d0c4be",
+                "cf89281fc79d65d2",
+                "283425bb9948fc23"
+            ]
+        ]
+    },
+    {
+        "id": "59f6960b49d0c4be",
+        "type": "function",
+        "z": "33e65cd248728010",
+        "name": "Bridge: telemetry -> Backend",
+        "func": "var data = msg.payload || {};\nvar room = data.room;\nvar sensorType = data.sensorType;\nif (!room || !sensorType) { return null; }\n\nreturn {\n    topic: \"home/\" + room + \"/sensor/\" + sensorType,\n    payload: {\n        value: data.value,\n        unit: data.unit,\n        deviceId: data.deviceId || (\"esp32-\" + room),\n        timestamp: new Date().toISOString()\n    }\n};",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 490,
+        "y": 330,
+        "wires": [
+            [
+                "019e3fc00d3cd70b"
+            ]
+        ]
+    },
+    {
+        "id": "cf89281fc79d65d2",
+        "type": "function",
+        "z": "33e65cd248728010",
+        "name": "Gas: nguong + debounce -> Telegram/Backend",
+        "func": "var data = msg.payload || {};\nif (data.sensorType !== \"gas\") { return null; }\n\nvar GAS_THRESHOLD = 2200; \nif (data.value === undefined || data.value === null || data.value <= GAS_THRESHOLD) { return null; }\n\nif (typeof global.gasLastAlertTime === 'undefined') { global.gasLastAlertTime = 0; }\nvar now = Date.now();\nvar COOLDOWN = 60 * 1000;\nif (global.gasLastAlertTime !== 0 && (now - global.gasLastAlertTime) < COOLDOWN) {\n    return null; \n}\nglobal.gasLastAlertTime = now;\n\nvar room = data.room || \"kitchen\";\nvar eventTime = new Date().toISOString();\n\nvar telegramMsg = {\n    payload: {\n        chatId: \"8823676499\",\n        type: \"message\",\n        content: \"CẢNH BÁO KHẨN CẤP: Phát hiện rò rỉ khí gas tại \" + room +\n                 \" (giá trị: \" + data.value + \"). Lúc \" + new Date().toLocaleTimeString('vi-VN')\n    }\n};\n\nvar backendMsg = {\n    topic: \"home/\" + room + \"/alert/gas\",\n    payload: {\n        room: room,\n        type: \"gas\",\n        deviceId: data.deviceId || (\"esp32-\" + room),\n        detected: true,\n        severity: \"critical\",\n        timestamp: eventTime\n    }\n};\n\nvar buzzerMsg = {\n    topic: \"home/esp32/alarm\",\n    payload: \"GAS_ALARM_ON\"\n};\n\nreturn [telegramMsg, backendMsg, buzzerMsg];",
+        "outputs": 3,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 560,
+        "y": 400,
+        "wires": [
+            [
+                "5c4354181d37c3dd"
+            ],
+            [
+                "019e3fc00d3cd70b"
+            ],
+            [
+                "89158828a750af50"
+            ]
+        ]
+    },
+    {
+        "id": "283425bb9948fc23",
+        "type": "function",
+        "z": "33e65cd248728010",
+        "name": "DHT: nguong + debounce -> Telegram",
+        "func": "var data = msg.payload || {};\nif (data.sensorType !== \"temperature\" && data.sensorType !== \"humidity\") { return null; }\n\nvar room = data.room || \"unknown\";\nvar value = data.value;\n\nvar TEMP_FIRE = 40;  \nvar TEMP_HIGH = 35;\nvar TEMP_LOW = 16;\nvar HUMID_HIGH = 85;\n\nvar alert = null;\nif (data.sensorType === \"temperature\") {\n    if (value >= TEMP_FIRE) {\n        alert = \"NGUY CƠ QUÁ NHIỆT tại \" + room + \": \" + value + \"°C. Còi vật lý đã tự kích hoạt, kiểm tra ngay!\";\n    } else if (value >= TEMP_HIGH) {\n        alert = \"Nhiệt độ \" + room + \" quá cao: \" + value + \"°C. Kiểm tra điều hòa/quạt cho người già.\";\n    } else if (value <= TEMP_LOW) {\n        alert = \"Nhiệt độ \" + room + \" quá thấp: \" + value + \"°C. Cần giữ ấm cho người già.\";\n    }\n} else if (data.sensorType === \"humidity\") {\n    if (value >= HUMID_HIGH) {\n        alert = \"Độ ẩm \" + room + \" cao bất thường: \" + value + \"%.\";\n    }\n}\n\nif (!alert) { return null; }\n\nvar key = \"dhtLastAlertTime_\" + room;\nvar last = global.get(key) || 0;\nvar now = Date.now();\nvar COOLDOWN = 60 * 1000;\nif (last !== 0 && (now - last) < COOLDOWN) { return null; }\nglobal.set(key, now);\n\nreturn {\n    payload: {\n        chatId: \"8823676499\",\n        type: \"message\",\n        content: alert\n    }\n};",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 490,
+        "y": 470,
+        "wires": [
+            [
+                "5c4354181d37c3dd"
+            ]
+        ]
+    },
+    {
+        "id": "c597a171e7de584b",
+        "type": "mqtt in",
+        "z": "33e65cd248728010",
+        "name": "Camera AI: safe",
+        "topic": "home/camera/safe",
+        "qos": "2",
+        "datatype": "json",
+        "broker": "6909036c8ac8a190",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 160,
+        "y": 560,
+        "wires": [
+            [
+                "6bc583e4cebf3d3e"
+            ]
+        ]
+    },
+    {
+        "id": "6bc583e4cebf3d3e",
+        "type": "function",
+        "z": "33e65cd248728010",
+        "name": "function 6 (huy bao dong khi an toan)",
+        "func": "var lastAlertTime = global.get('fallLastAlertTime') || 0;\nvar now = Date.now();\n\nif (lastAlertTime === 0 || (now - lastAlertTime) > 5 * 60 * 1000) {\n    return null;\n}\n\nglobal.set('fallLastAlertTime', 0);\n\nvar alarmMsg = { topic: \"home/esp32/alarm\", payload: \"ALARM_OFF\" };\nvar telegramMsg = {\n    payload: {\n        chatId: \"8823676499\",\n        type: \"message\",\n        content: \"Đã xác nhận an toàn. Báo động té ngã tự hủy.\"\n    }\n};\nreturn [alarmMsg, telegramMsg];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 510,
+        "y": 560,
+        "wires": [
+            [
+                "89158828a750af50"
+            ],
+            [
+                "5c4354181d37c3dd"
+            ]
+        ]
+    },
+    {
+        "id": "3f765712c02beb0f",
+        "type": "mqtt in",
+        "z": "33e65cd248728010",
+        "name": "App: tat coi thu cong",
+        "topic": "home/esp32/alarm/off",
+        "qos": "2",
+        "datatype": "json",
+        "broker": "6909036c8ac8a190",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 170,
+        "y": 640,
+        "wires": [
+            [
+                "8b5d875024912c85"
+            ]
+        ]
+    },
+    {
+        "id": "8b5d875024912c85",
+        "type": "function",
+        "z": "33e65cd248728010",
+        "name": "function 8 (reset cooldown, tat coi)",
+        "func": "global.set('fallLastAlertTime', 0);\nglobal.set('gasLastAlertTime', 0);\nglobal.set('dhtLastAlertTime_livingroom', 0);\nglobal.set('dhtLastAlertTime_bedroom', 0);\n\nmsg.topic = \"home/esp32/alarm\";\nmsg.payload = \"ALARM_OFF\";\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 520,
+        "y": 640,
+        "wires": [
+            [
+                "89158828a750af50"
+            ]
+        ]
+    },
+    {
+        "id": "6909036c8ac8a190",
+        "type": "mqtt-broker",
+        "name": "",
+        "broker": "localhost",
+        "port": 1883,
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": 4,
+        "keepalive": 60,
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "1c29f8f8041cfec0",
+        "type": "telegram bot",
+        "botname": "ElderlyCare_SIC bot",
+        "usernames": "",
+        "chatids": "",
+        "baseapiurl": "",
+        "testenvironment": false,
+        "updatemode": "polling",
+        "pollinterval": 300,
+        "usesocks": false,
+        "sockshost": "",
+        "socksprotocol": "socks5",
+        "socksport": 6667,
+        "socksusername": "anonymous",
+        "sockspassword": "",
+        "bothost": "",
+        "botpath": "",
+        "localbothost": "0.0.0.0",
+        "localbotport": 8443,
+        "publicbotport": 8443,
+        "privatekey": "",
+        "certificate": "",
+        "useselfsignedcertificate": false,
+        "sslterminated": false,
+        "verboselogging": false
+    },
+    {
+        "id": "cb0e3c4cf536e7ef",
+        "type": "global-config",
+        "env": [],
+        "modules": {
+            "node-red-contrib-telegrambot": "19.0.1"
+        }
+    }
+]

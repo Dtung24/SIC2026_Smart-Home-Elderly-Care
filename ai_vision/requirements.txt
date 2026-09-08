@@ -1,0 +1,7 @@
+ultralytics==8.4.129
+opencv-python==5.0.0.93
+onnxruntime==1.29.0
+fastapi==0.141.1
+uvicorn==0.52.4
+paho-mqtt==2.1.0
+numpy==2.4.6
