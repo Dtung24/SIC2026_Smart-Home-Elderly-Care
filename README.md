@@ -1,7 +1,4 @@
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> ffbf34c9b1dfdcff5416ecf6d224d3eb28101675
+
 # 🏠 Hệ Thống Smart Home Kết Hợp Camera AI Giám Sát & Bảo Vệ Người Cao Tuổi
 ### *(Elderly Care Smart Home & Computer Vision AI Ecosystem)*
 
