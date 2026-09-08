@@ -10,7 +10,9 @@ import {
 // Default base URL from Backend Contract
 export const DEFAULT_BACKEND_URL =
   (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_BACKEND_URL) ||
-  'http://192.168.1.8:3000';
+  (typeof window !== 'undefined'
+    ? `${window.location.protocol}//${window.location.hostname}:3000`
+    : 'http://127.0.0.1:3000');
 
 class BackendService {
   private baseUrl: string = DEFAULT_BACKEND_URL;

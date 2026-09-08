@@ -160,11 +160,25 @@ mqttClient.on("message", async (topic, messageBuffer) => {
       return;
     }
 
-    const alert = {
-      room: room,
-      type: type,
-      ...payload
-    };
+  const rawTimestamp = payload.timestamp;
+  let timestamp = new Date();
+
+  if (typeof rawTimestamp === "number" && rawTimestamp > 1500000000000) {
+    timestamp = new Date(rawTimestamp);
+  } else if (
+    typeof rawTimestamp === "string" &&
+    rawTimestamp.trim() !== "" &&
+    !Number.isNaN(new Date(rawTimestamp).getTime())
+  ) {
+    timestamp = new Date(rawTimestamp);
+  }
+
+  const alert = {
+    ...payload,
+    room: room,
+    type: type,
+    timestamp: timestamp
+  };
 
     console.log("🚨 CẢNH BÁO:", alert);
 

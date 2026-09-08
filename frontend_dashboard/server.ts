@@ -7,7 +7,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const app = express();
-const PORT = 3000;
+const PORT = 5173;
 
 app.use(express.json());
 
@@ -142,7 +142,7 @@ let incidentsList = [
     detected: false,
     severity: "critical",
     confidence: 0.96,
-    snapshotPath: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80",
+    snapshotPath: "src={`http://${window.location.hostname}:8000/video_feed`}",
     timestamp: new Date(Date.now() - 3600000).toISOString(),
     status: "resolved",
   },
