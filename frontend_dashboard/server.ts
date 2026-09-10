@@ -8,7 +8,7 @@ import os from "os";
 dotenv.config();
 
 const app = express();
-const PORT = 5173;
+const PORT = Number(process.env.PORT) || 5173;
 
 app.use(express.json());
 

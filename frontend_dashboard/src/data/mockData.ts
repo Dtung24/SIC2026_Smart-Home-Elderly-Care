@@ -12,7 +12,8 @@ export const INITIAL_ROOMS: RoomCamera[] = [
     aiStatusText: 'AI: Không phát hiện bất thường',
     aiStatusLevel: 'safe',
     personDetected: true,
-    activityNote: 'Bà đang đọc báo trên ghế sofa',
+
+    activityNote: '',
     lastMotionTime: '1 phút trước',
   },
   {
@@ -166,8 +167,8 @@ export const INITIAL_CONTACTS: EmergencyContact[] = [
     name: 'BS. Trần Khang',
     relation: 'Bác sĩ gia đình',
     phone: '0906 222 885',
-    telegramUsername: 'bs_tranlan_eldercare',
-    telegramUrl: 'https://t.me/bs_tranlan_eldercare',
+    telegramUsername: 'khangtran667',
+    telegramUrl: 'https://t.me/khangtran667',
     avatar: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&w=200&q=80',
     isPrimary: false,
     notes: 'Bác sĩ Lão Khoa TW - Hỗ trợ tư vấn khẩn qua Telegram',
