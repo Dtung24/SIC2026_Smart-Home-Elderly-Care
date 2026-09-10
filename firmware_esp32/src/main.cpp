@@ -110,8 +110,8 @@ void publishTelemetry(String room, String sensorType, float value, String unit, 
 }
 
 void setup() {
-  // 1. Mở Serial với Baud Rate 115200
-  Serial.begin(115200); 
+  // 1. Mở Serial với Baud Rate 74880
+  Serial.begin(74880); 
   delay(1000); 
   printResetReason();
   Serial.println("\n🚀 KHỞI ĐỘNG HỆ THỐNG ELDERHOME AI...");
