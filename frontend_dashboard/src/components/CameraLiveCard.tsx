@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Video, Maximize2, RefreshCw, Eye, Sparkles } from 'lucide-react';
+import { Video, Maximize2, RefreshCw, Sparkles } from 'lucide-react';
 import { RoomCamera } from '../types';
 
 interface CameraLiveCardProps {
@@ -58,12 +58,6 @@ export const CameraLiveCard: React.FC<CameraLiveCardProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Green Pill Badge: "• Trực tiếp" */}
-          <div className="inline-flex items-center gap-1.5 bg-[#006e26] text-white px-3.5 py-1.5 rounded-full text-sm font-bold shadow-sm">
-            <span className="h-2 w-2 rounded-full bg-white animate-ping"></span>
-            <span>Trực tiếp</span>
-          </div>
-
           <button
             onClick={handleRefresh}
             title="Làm mới luồng video"
@@ -101,13 +95,6 @@ export const CameraLiveCard: React.FC<CameraLiveCardProps> = ({
           </button>
         </div>
 
-        {/* Person detection subtle radar icon */}
-        {livingRoom.personDetected && (
-          <div className="absolute bottom-2 left-2 bg-emerald-950/70 backdrop-blur-xs text-emerald-300 text-xs px-2.5 py-1 rounded-lg flex items-center gap-1.5 border border-emerald-500/30 font-semibold">
-            <Eye className="w-3.5 h-3.5 animate-pulse" />
-            <span>Có người trong phòng</span>
-          </div>
-        )}
       </div>
 
       {/* Note about single camera privacy */}

@@ -11,8 +11,8 @@ import { Header } from './components/Header';
 import { StatusBanner } from './components/StatusBanner';
 import { CameraLiveCard } from './components/CameraLiveCard';
 import { GasSensorCard } from './components/GasSensorCard';
-import { AirQualityCard } from './components/AirQualityCard';
 import { ClimateCard } from './components/ClimateCard';
+
 import { BottomNav } from './components/BottomNav';
 import { LogScreen } from './components/LogScreen';
 import { HelpScreen } from './components/HelpScreen';
@@ -550,10 +550,7 @@ export default function App() {
               onSimulateGasAlert={handleSimulateGasLeak}
             />
 
-            {/* 4. Air Quality Card: "Không khí" */}
-            <AirQualityCard sensors={sensors} />
-
-            {/* 5. Climate Card: "Nhiệt độ & Độ ẩm" */}
+            {/* 4. Climate Card: "Nhiệt độ & Độ ẩm" */}
             <ClimateCard
               sensors={sensors}
               selectedRoomId={selectedRoomId}

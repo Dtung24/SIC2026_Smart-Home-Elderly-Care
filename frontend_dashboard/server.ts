@@ -164,7 +164,47 @@ app.patch("/api/incidents/:id/status", (req: Request, res: Response) => {
   }
   res.json({ success: true, id, status });
 });
+function formatSensorContext(context: any): string {
+  if (!context) return "Hiện chưa có dữ liệu cảm biến.";
 
+  const { sensors, rooms, medications, emergencyContacts } = context;
+  const lines: string[] = [];
+
+  if (sensors) {
+    const statusText = sensors.systemStatus === 'safe' ? 'AN TOÀN' : 'CẦN LƯU Ý';
+    lines.push(`- Trạng thái hệ thống: ${statusText}`);
+    if (sensors.temperature != null) lines.push(`- Nhiệt độ: ${sensors.temperature}°C`);
+    if (sensors.humidity != null) lines.push(`- Độ ẩm: ${sensors.humidity}%`);
+    if (sensors.aqi != null) lines.push(`- Chỉ số chất lượng không khí (AQI): ${sensors.aqi}`);
+    if (sensors.gasLevelPpm != null) {
+      const gasStatus = sensors.gasLevelPpm > 50 ? 'CAO BẤT THƯỜNG' : 'bình thường';
+      lines.push(`- Nồng độ khí gas: ${sensors.gasLevelPpm} ppm (${gasStatus})`);
+    }
+  }
+
+  if (Array.isArray(rooms) && rooms.length > 0) {
+    lines.push(`- Chi tiết các phòng:`);
+    rooms.forEach((r: any) => {
+      const person = r.personDetected ? 'có người' : 'không có người';
+      lines.push(`  + ${r.name}: ${person}${r.activityNote ? `, ${r.activityNote}` : ''}`);
+    });
+  }
+
+  if (Array.isArray(medications) && medications.length > 0) {
+    const pending = medications.filter((m: any) => !m.taken);
+    if (pending.length > 0) {
+      lines.push(`- Thuốc CHƯA uống hôm nay: ${pending.map((m: any) => `${m.name} (${m.time})`).join(', ')}`);
+    } else {
+      lines.push(`- Tất cả thuốc hôm nay đã uống đầy đủ.`);
+    }
+  }
+
+  if (Array.isArray(emergencyContacts) && emergencyContacts.length > 0) {
+    lines.push(`- Người thân/Bác sĩ liên hệ: ${emergencyContacts.map((c: any) => `${c.name} (${c.relation}, ${c.phone})`).join('; ')}`);
+  }
+
+  return lines.length > 0 ? lines.join('\n') : "Trạng thái các cảm biến và camera trong nhà của ông bà đang an toàn.";
+}
 // Voice & Text AI Chat assistant for elder care
 app.post("/api/chat", async (req: Request, res: Response) => {
   try {
@@ -176,18 +216,26 @@ app.post("/api/chat", async (req: Request, res: Response) => {
     const ai = getGeminiClient();
 
     const systemInstruction = `Bạn là "Tâm An Trợ Lý AI" - trợ lý ảo thông minh, chu đáo và ân cần hỗ trợ gia đình theo dõi, chăm sóc sức khỏe và đảm bảo an toàn cho người cao tuổi (ông bà / cha mẹ) trong ngôi nhà thông minh Tâm An Home.
-Đặc điểm giao tiếp:
+
+## Đặc điểm giao tiếp
 1. Xưng hô chuẩn mực, thân thiện và ấm áp: Xưng là "Tâm An" hoặc "cháu/em", gọi người dùng là "bạn" hoặc "gia đình", và khi nhắc đến người cao tuổi được theo dõi thì gọi là "ông bà" hoặc "cụ/bác" một cách kính trọng.
 2. Trả lời súc tích, rõ ràng, dễ hiểu (từ 2-4 câu) vì nội dung có thể được phát trực tiếp qua giọng nói tiếng Việt cho cả gia đình nghe.
-3. Hỗ trợ giải đáp các vấn đề:
-   - Tình trạng an toàn, nhiệt độ, không khí, cảm biến gas và hình ảnh camera các phòng của ông bà.
-   - Nhắc nhở và kiểm tra lịch uống thuốc hàng ngày của ông bà.
-   - Hướng dẫn sơ cứu, xử lý khi ông bà trượt ngã, chóng mặt hoặc có sự cố trong nhà.
-   - Hỗ trợ kết nối các thành viên gia đình (anh Nguyễn Văn Hùng, chị Nguyễn Thị Mai) và Bác sĩ gia đình BS. Trần Lan qua Telegram.
-   - Kiến trúc phần cứng: Hệ thống 100% KHÔNG CẦN module SIM (như SIM800L hay GSM) trên ESP32. Thiết bị chỉ cần Wi-Fi kết nối MQTT Broker, cảnh báo và gọi điện được thực hiện qua Telegram Bot API trên đường truyền Internet hoàn toàn miễn phí.
-4. Thông tin bối cảnh hiện tại của ngôi nhà:
-   ${context ? JSON.stringify(context) : "Trạng thái các cảm biến và camera trong nhà của ông bà đang an toàn."}`;
+3. Kiến trúc phần cứng: Hệ thống 100% KHÔNG CẦN module SIM (như SIM800L hay GSM) trên ESP32. Thiết bị chỉ cần Wi-Fi kết nối MQTT Broker, cảnh báo và gọi điện được thực hiện qua Telegram Bot API trên đường truyền Internet hoàn toàn miễn phí.
+4. Hỗ trợ kết nối các thành viên gia đình (anh Nguyễn Văn Hùng, chị Nguyễn Thị Mai) và Bác sĩ gia đình BS. Trần Lan qua Telegram.
 
+## Dữ liệu cảm biến & trạng thái nhà THỜI GIAN THỰC
+${formatSensorContext(context)}
+
+## Quy tắc bắt buộc khi trả lời
+- Khi được hỏi về nhiệt độ, độ ẩm, không khí, khí gas, hoặc tình trạng phòng nào đó, LUÔN dùng đúng số liệu/trạng thái trong phần "Dữ liệu cảm biến" ở trên. TUYỆT ĐỐI không tự bịa ra con số khác.
+- Nếu dữ liệu không có thông tin về điều được hỏi, hãy trả lời trung thực rằng hiện chưa có cảm biến/dữ liệu ở khu vực đó, thay vì đoán mò.
+- Khi được hỏi về lịch uống thuốc, dựa đúng vào danh sách thuốc đã/chưa uống ở trên.
+- Khi được hỏi cách xử lý khẩn cấp (ngã, chóng mặt, rò gas), đưa hướng dẫn sơ cứu cụ thể, ngắn gọn, dễ làm theo ngay.
+- Nếu câu hỏi nằm ngoài phạm vi nhà thông minh Tâm An Home (ví dụ thời tiết ngoài trời, tin tức, kiến thức chung không liên quan), hãy lịch sự nói rằng Tâm An chỉ hỗ trợ theo dõi an toàn và sức khỏe trong nhà, và gợi ý người dùng hỏi câu liên quan.
+
+## Ví dụ cách trả lời chuẩn
+Hỏi: "Nhiệt độ phòng khách bao nhiêu?"
+Trả lời mẫu: "Dạ, nhiệt độ Phòng Khách hiện là 26.5°C, độ ẩm 55%, mọi thứ đang ở mức an toàn ạ."`;
     if (ai) {
       try {
         let contentsPayload: any = message;
