@@ -3,6 +3,7 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
+import os from "os";
 
 dotenv.config();
 
@@ -251,6 +252,17 @@ app.post("/api/chat", async (req: Request, res: Response) => {
 });
 
 // Vite / Static file serving
+function getLocalIp(): string {
+  const interfaces = os.networkInterfaces();
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name] || []) {
+      if (iface.family === "IPv4" && !iface.internal) {
+        return iface.address;
+      }
+    }
+  }
+  return "localhost";
+}
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
@@ -267,8 +279,10 @@ async function startServer() {
   }
 
   app.listen(PORT, "0.0.0.0", () => {
+    const ip = getLocalIp();   // 👈 gọi hàm lấy IP
     console.log(`ElderHome AI Server running on:`);
     console.log(`  > Local:   http://localhost:${PORT}`);
+    console.log(`  > Network: http://${ip}:${PORT}`);   // 👈 thêm dòng log này
   });
 }
 startServer();
