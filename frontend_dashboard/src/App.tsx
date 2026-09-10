@@ -11,8 +11,8 @@ import { Header } from './components/Header';
 import { StatusBanner } from './components/StatusBanner';
 import { CameraLiveCard } from './components/CameraLiveCard';
 import { GasSensorCard } from './components/GasSensorCard';
-import { AirQualityCard } from './components/AirQualityCard';
 import { ClimateCard } from './components/ClimateCard';
+
 import { BottomNav } from './components/BottomNav';
 import { LogScreen } from './components/LogScreen';
 import { HelpScreen } from './components/HelpScreen';
@@ -20,7 +20,7 @@ import { EmergencyModal } from './components/EmergencyModal';
 import { SimulationBar } from './components/SimulationBar';
 import { playSuccessChime, playWarningBeep, speakVietnamese } from './utils/audio';
 import { backendService } from './services/backendService';
-import { Home, Utensils, BedDouble, Send, PhoneCall, ExternalLink } from 'lucide-react';
+import { Home, Send, PhoneCall, ExternalLink } from 'lucide-react';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabType>('home');
@@ -36,8 +36,7 @@ export default function App() {
 
   const getRoomName = (roomId: string) => {
     switch (roomId) {
-      case 'kitchen': return 'Nhà Bếp';
-      case 'bedroom': return 'Phòng Ngủ';
+    
       default: return 'Phòng Khách';
     }
   };
@@ -535,44 +534,8 @@ export default function App() {
               onResetStatus={handleSetSafe}
             />
 
-            {/* Room Selector Pills for the 3 Rooms */}
-            <div className="bg-white border border-slate-200/90 rounded-2xl p-2 shadow-xs flex items-center gap-1.5">
-              <button
-                onClick={() => setSelectedRoomId('livingroom')}
-                className={`flex-1 py-2 px-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                  selectedRoomId === 'livingroom'
-                    ? 'bg-[#003f87] text-white shadow-sm ring-2 ring-[#003f87]/20'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                }`}
-              >
-                <Home className="w-3.5 h-3.5" />
-                <span>Phòng Khách</span>
-              </button>
-
-              <button
-                onClick={() => setSelectedRoomId('kitchen')}
-                className={`flex-1 py-2 px-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                  selectedRoomId === 'kitchen'
-                    ? 'bg-[#003f87] text-white shadow-sm ring-2 ring-[#003f87]/20'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                }`}
-              >
-                <Utensils className="w-3.5 h-3.5" />
-                <span>Nhà Bếp</span>
-              </button>
-
-              <button
-                onClick={() => setSelectedRoomId('bedroom')}
-                className={`flex-1 py-2 px-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                  selectedRoomId === 'bedroom'
-                    ? 'bg-[#003f87] text-white shadow-sm ring-2 ring-[#003f87]/20'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                }`}
-              >
-                <BedDouble className="w-3.5 h-3.5" />
-                <span>Phòng Ngủ</span>
-              </button>
-            </div>
+            {/* Room selector removed */}
+            <div className="hidden" aria-hidden="true" />
 
             {/* 2. Camera Live Card: Only in livingroom with topic home/livingroom/alert/fall */}
             <CameraLiveCard
@@ -587,10 +550,7 @@ export default function App() {
               onSimulateGasAlert={handleSimulateGasLeak}
             />
 
-            {/* 4. Air Quality Card: "Không khí" */}
-            <AirQualityCard sensors={sensors} />
-
-            {/* 5. Climate Card: "Nhiệt độ & Độ ẩm" */}
+            {/* 4. Climate Card: "Nhiệt độ & Độ ẩm" */}
             <ClimateCard
               sensors={sensors}
               selectedRoomId={selectedRoomId}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Video, Maximize2, RefreshCw, Eye, ShieldCheck, AlertCircle, Sparkles } from 'lucide-react';
+import { Video, Maximize2, RefreshCw, Sparkles } from 'lucide-react';
 import { RoomCamera } from '../types';
 
 interface CameraLiveCardProps {
@@ -58,12 +58,6 @@ export const CameraLiveCard: React.FC<CameraLiveCardProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Green Pill Badge: "• Trực tiếp" */}
-          <div className="inline-flex items-center gap-1.5 bg-[#006e26] text-white px-3.5 py-1.5 rounded-full text-sm font-bold shadow-sm">
-            <span className="h-2 w-2 rounded-full bg-white animate-ping"></span>
-            <span>Trực tiếp</span>
-          </div>
-
           <button
             onClick={handleRefresh}
             title="Làm mới luồng video"
@@ -88,41 +82,7 @@ export const CameraLiveCard: React.FC<CameraLiveCardProps> = ({
           {timecode}
         </div>
 
-        {/* Floating AI Detection Center Badge matching screenshot:
-            "AI: Không phát hiện bất thường" */}
-        <div className="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
-          <div
-            className={`pointer-events-auto backdrop-blur-md px-5 py-3.5 sm:px-6 sm:py-4 rounded-2xl shadow-lg border text-center transition-all ${
-              livingRoom.aiStatusLevel === 'danger'
-                ? 'bg-red-600/90 border-red-400 text-white animate-bounce'
-                : livingRoom.aiStatusLevel === 'warning'
-                ? 'bg-amber-500/90 border-amber-300 text-white'
-                : 'bg-white/90 border-white/80 text-slate-900 shadow-slate-900/10'
-            }`}
-          >
-            <div className="flex items-center justify-center gap-2">
-              {livingRoom.aiStatusLevel === 'safe' ? (
-                <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
-              ) : (
-                <AlertCircle className="w-5 h-5 text-white shrink-0 animate-pulse" />
-              )}
-              <span className="text-[17px] sm:text-[20px] font-black tracking-tight leading-snug">
-                {livingRoom.aiStatusText}
-              </span>
-            </div>
-            {livingRoom.activityNote && (
-              <p
-                className={`text-xs sm:text-sm mt-1 font-medium ${
-                  livingRoom.aiStatusLevel === 'safe'
-                    ? 'text-slate-600'
-                    : 'text-white/90'
-                }`}
-              >
-                {livingRoom.activityNote}
-              </p>
-            )}
-          </div>
-        </div>
+      
 
         {/* Bottom controls inside viewport */}
         <div className="absolute bottom-2 right-2 flex items-center gap-1.5">
@@ -135,13 +95,6 @@ export const CameraLiveCard: React.FC<CameraLiveCardProps> = ({
           </button>
         </div>
 
-        {/* Person detection subtle radar icon */}
-        {livingRoom.personDetected && (
-          <div className="absolute bottom-2 left-2 bg-emerald-950/70 backdrop-blur-xs text-emerald-300 text-xs px-2.5 py-1 rounded-lg flex items-center gap-1.5 border border-emerald-500/30 font-semibold">
-            <Eye className="w-3.5 h-3.5 animate-pulse" />
-            <span>Có người trong phòng</span>
-          </div>
-        )}
       </div>
 
       {/* Note about single camera privacy */}
