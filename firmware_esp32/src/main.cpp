@@ -1,18 +1,19 @@
 #include <Arduino.h>
 #include <WiFi.h>
+#include <WiFiManager.h>  // Thêm thư viện thần thánh này
 #include <PubSubClient.h>
 #include <DHT.h>
 
-// Thông số WiFi & MQTT Broker
-const char* ssid = "Giang Khang";       
-const char* password = "Aibietdau0507";       
+// --- THÔNG SỐ MQTT ---
 const char* mqtt_server = "broker.hivemq.com"; 
+// (Đã xóa ssid và password cũ)
 
-// Khai báo Chân GPIO
+// --- KHAI BÁO CHÂN GPIO ---
 #define MQ2_AO_PIN 35
-#define PIR_PIN 13
-#define DHTPIN1 26 // DHT1: Đặt tại phòng khách (livingroom)
-#define DHTPIN2 27 // DHT2: Đặt tại phòng ngủ (bedroom)
+#define PIR_PIN 13          
+#define LED_HALLWAY_PIN 14  
+#define DHTPIN1 26          
+#define DHTPIN2 27          
 #define DHTTYPE DHT11
 #define BUZZER_PIN 32 
 #define BUZZER_CHANNEL 0
@@ -24,20 +25,24 @@ WiFiClient espClient;
 PubSubClient client(espClient);
 
 unsigned long lastMsg = 0; 
-unsigned long lastMotionTime = 0; 
-const unsigned long NO_MOTION_THRESHOLD = 15000; // 15s bất động = Báo động ngã
 
 void setup_wifi() {
-  delay(10);
-  WiFi.mode(WIFI_STA); 
-  Serial.print("Đang kết nối WiFi...");
-  WiFi.begin(ssid, password);
+  // Khởi tạo WiFiManager
+  WiFiManager wm;
 
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
+  Serial.println("📡 Đang kết nối WiFi hoặc mở Access Point...");
+  
+  // Tạo Access Point tên là "ElderHome_Setup", pass là "12345678"
+  // Hàm này sẽ tự động kết nối mạng cũ, nếu không có nó sẽ mở AP
+  bool res = wm.autoConnect("ElderHome_Setup", "12345678");
+
+  if(!res) {
+    Serial.println("❌ Kết nối thất bại, đang khởi động lại...");
+    ESP.restart();
+  } 
+  else {
+    Serial.println("\n✅ WiFi ĐÃ KẾT NỐI THÀNH CÔNG!");
   }
-  Serial.println("\n✅ WiFi ĐÃ KẾT NỐI!");
 }
 
 void reconnect() {
@@ -52,14 +57,14 @@ void reconnect() {
   }
 }
 
-// Hàm bổ trợ gửi Telemetry chuẩn Socket Event Schema cho Backend
-void publishTelemetry(String room, String sensorType, float value, String unit) {
+void publishTelemetry(String room, String sensorType, float value, String unit, String alert) {
   String topic = "home/" + room + "/telemetry";
   String payload = "{";
   payload += "\"room\":\"" + room + "\",";
   payload += "\"sensorType\":\"" + sensorType + "\",";
   payload += "\"value\":" + String(value, 2) + ",";
   payload += "\"unit\":\"" + unit + "\",";
+  payload += "\"alert\":\"" + alert + "\",";
   payload += "\"timestamp\":\"" + String(millis()) + "\"";
   payload += "}";
 
@@ -74,14 +79,15 @@ void setup() {
   ledcWriteTone(BUZZER_CHANNEL, 0); 
 
   pinMode(PIR_PIN, INPUT);
+  pinMode(LED_HALLWAY_PIN, OUTPUT);
+  digitalWrite(LED_HALLWAY_PIN, LOW);
   
   dht_livingroom.begin();
   dht_bedroom.begin();
   
+  // GỌI HÀM SETUP WIFI MỚI
   setup_wifi(); 
   client.setServer(mqtt_server, 1883); 
-  
-  lastMotionTime = millis(); 
 }
 
 void loop() {
@@ -90,25 +96,21 @@ void loop() {
   }
   client.loop(); 
 
-  unsigned long now = millis();
-
-  // 1. ĐỌC PIR PHÒNG KHÁCH (LIVINGROOM)
-  int co_nguoi = digitalRead(PIR_PIN);
-  if (co_nguoi == HIGH) {
-    lastMotionTime = now; 
+  int co_nguoi_hanh_lang = digitalRead(PIR_PIN);
+  if (co_nguoi_hanh_lang == HIGH) {
+    digitalWrite(LED_HALLWAY_PIN, HIGH);
+  } else {
+    digitalWrite(LED_HALLWAY_PIN, LOW);
   }
 
-  // 2. CHU KỲ BẮN DỮ LIỆU MỖI 2 GIÂY
+  unsigned long now = millis();
   if (now - lastMsg > 2000) { 
     lastMsg = now;
 
-    // Đọc cảm biến các phòng
     float t_livingroom = dht_livingroom.readTemperature();
     float h_livingroom = dht_livingroom.readHumidity();
-    
     float t_bedroom = dht_bedroom.readTemperature();
     float h_bedroom = dht_bedroom.readHumidity();
-    
     int gas_kitchen = analogRead(MQ2_AO_PIN); 
 
     if (isnan(t_livingroom)) t_livingroom = 0.0;
@@ -116,38 +118,28 @@ void loop() {
     if (isnan(t_bedroom)) t_bedroom = 0.0;
     if (isnan(h_bedroom)) h_bedroom = 0.0;
 
-    // --- A. BẮN TELEMETRY PHÒNG KHÁCH (LIVINGROOM) ---
-    publishTelemetry("livingroom", "temperature", t_livingroom, "°C");
-    publishTelemetry("livingroom", "humidity", h_livingroom, "%");
-    publishTelemetry("livingroom", "motion", co_nguoi, "boolean");
+    bool chay_kitchen = (gas_kitchen > 2200);
+    bool chay_livingroom = (t_livingroom > 40.0);
+    bool chay_bedroom = (t_bedroom > 40.0);
 
-    // --- B. BẮN TELEMETRY PHÒNG NGỦ (BEDROOM) ---
-    publishTelemetry("bedroom", "temperature", t_bedroom, "°C");
-    publishTelemetry("bedroom", "humidity", h_bedroom, "%");
+    String alert_living = chay_livingroom ? "FIRE" : "NONE";
+    publishTelemetry("livingroom", "temperature", t_livingroom, "°C", alert_living);
+    publishTelemetry("livingroom", "humidity", h_livingroom, "%", alert_living);
 
-    // --- C. BẮN TELEMETRY NHÀ BẾP (KITCHEN) ---
-    publishTelemetry("kitchen", "gas", gas_kitchen, "PPM");
+    String alert_bed = chay_bedroom ? "FIRE" : "NONE";
+    publishTelemetry("bedroom", "temperature", t_bedroom, "°C", alert_bed);
+    publishTelemetry("bedroom", "humidity", h_bedroom, "%", alert_bed);
 
-    // --- D. XỬ LÝ CẢNH BÁO VÀ HÚ CÒI ---
-    bool canh_bao_chay = (gas_kitchen > 2200 || t_livingroom > 40.0 || t_bedroom > 40.0);
-    bool canh_bao_nga = ((now - lastMotionTime) > NO_MOTION_THRESHOLD); 
+    String alert_kit = chay_kitchen ? "FIRE" : "NONE";
+    publishTelemetry("kitchen", "gas", gas_kitchen, "PPM", alert_kit);
+    publishTelemetry("hallway", "motion", co_nguoi_hanh_lang, "boolean", "NONE");
 
-    if (canh_bao_chay) {
+    if (chay_kitchen || chay_livingroom || chay_bedroom) {
       ledcWriteTone(BUZZER_CHANNEL, 2000); 
-      Serial.println("🚨 CANH BAO CHAY / GAS!");
-    } 
-    else if (canh_bao_nga) {
-      ledcWriteTone(BUZZER_CHANNEL, 1000); 
-      
-      // Bắn Cảnh báo ngã lên Topic phòng khách riêng chuẩn Camera
-      String fallPayload = "{\"room\":\"livingroom\",\"alert\":true,\"type\":\"FALL_DETECTED\"}";
-      client.publish("home/livingroom/alert/fall", fallPayload.c_str());
-      
-      Serial.println("🚨 BÁO ĐỘNG NGÃ PHÒNG KHÁCH -> home/livingroom/alert/fall");
-    } 
-    else {
+      Serial.println("🚨 BÁO ĐỘNG CHÁY / GAS!");
+    } else {
       ledcWriteTone(BUZZER_CHANNEL, 0); 
       Serial.println("✅ AN TOÀN");
     }
   }
-}       
+}
