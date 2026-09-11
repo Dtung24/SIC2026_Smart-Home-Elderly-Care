@@ -8,6 +8,7 @@ const { Server } = require("socket.io");
 const mongoose = require("mongoose");
 const Telemetry = require("./models/Telemetry");
 const Incident = require("./models/Incident");
+const createAiRouter = require("./routes/aiRoutes");
 
 const app = express();
 const server = http.createServer(app);
@@ -40,6 +41,14 @@ const latestData = {
   staircase: createRoomData(),
   updatedAt: null
 };
+
+// AI Agent sử dụng dữ liệu cảm biến mới nhất trong bộ nhớ.
+app.use(
+  "/api/chat",
+  createAiRouter({
+    getLatestData: () => latestData
+  })
+);
 
 // Kết nối từ backend tới Mosquitto trên chính Pi
 const mqttClient = mqtt.connect(process.env.MQTT_URL);
