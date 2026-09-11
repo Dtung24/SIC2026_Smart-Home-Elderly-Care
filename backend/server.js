@@ -37,7 +37,7 @@ const createRoomData = () => ({
 const latestData = {
   livingroom: createRoomData(),
   kitchen: createRoomData(),
-  bedroom: createRoomData(),
+  staircase: createRoomData(),
   updatedAt: null
 };
 
@@ -103,13 +103,32 @@ mqttClient.on("error", (error) => {
 // Khi ESP32, AI hoặc Node-RED gửi dữ liệu MQTT
 mqttClient.on("message", async (topic, messageBuffer) => {
   try {
+    const parts = topic.split("/");
+
+    const isSensorTopic =
+      parts.length === 4 &&
+      parts[0] === "home" &&
+      parts[2] === "sensor";
+
+    const isAlertTopic =
+      parts.length === 4 &&
+      parts[0] === "home" &&
+      parts[2] === "alert";
+
+    const isStatusTopic =
+      topic.endsWith("/status");
+
+    // Backend chỉ xử lý các topic JSON mà nó cần.
+    // Các command như ON, OFF, FALL_ALARM_ON... sẽ được bỏ qua.
+    if (!isSensorTopic && !isAlertTopic && !isStatusTopic) {
+      return;
+    }
+
     const payload = JSON.parse(messageBuffer.toString());
 
     console.log("\n📩 Nhận MQTT");
     console.log("Topic:", topic);
     console.log("Data:", payload);
-
-    const parts = topic.split("/");
 
   // Nhận sensor: home/{room}/sensor/{sensorType}
   if (
