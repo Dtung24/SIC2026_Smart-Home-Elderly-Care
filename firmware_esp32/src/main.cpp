@@ -633,9 +633,9 @@ void connectMqttIfNeeded() {
   Serial.print(":");
   Serial.println(MQTT_PORT);
 
-  String mqttClientId =
-      deviceId + "-" +
-      String(random(0xffff), HEX);
+  // Dùng client ID cố định.
+  // Tránh session MQTT cũ còn tồn tại và phát Last Will false muộn.
+  String mqttClientId = deviceId;
 
   bool connected =
       client.connect(
@@ -895,6 +895,9 @@ void setup() {
       mqtt_server,
       MQTT_PORT
   );
+
+  // Tăng keepalive để kết nối ổn định hơn trên Wi-Fi.
+  client.setKeepAlive(30);
 
   client.setCallback(
       mqttCallback
