@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { EmergencyContact, MedicationReminder, RoomCamera, SensorState } from '../types';
 import { speakVietnamese, stopSpeaking, playTone } from '../utils/audio';
+import { backendService } from '../services/backendService';
 
 // Speech recognition type interface for cross-browser support
 interface IWindowSpeechRecognition extends EventTarget {
@@ -46,6 +47,8 @@ interface ChatMessage {
 interface HelpScreenProps {
   contacts: EmergencyContact[];
   medications: MedicationReminder[];
+  medicationLoading: boolean;
+  backendConnected: boolean | null;
   sensors?: SensorState;
   rooms?: RoomCamera[];
   onToggleMedication: (id: string) => void;
@@ -55,6 +58,8 @@ interface HelpScreenProps {
 export const HelpScreen: React.FC<HelpScreenProps> = ({
   contacts,
   medications,
+  medicationLoading,
+  backendConnected,
   sensors,
   rooms,
   onToggleMedication,
@@ -177,12 +182,14 @@ export const HelpScreen: React.FC<HelpScreenProps> = ({
     setIsSpeaking(false);
   };
 
-  // Process user question via Gemini API server endpoint with smart fallback
+  // Gửi câu hỏi tới AI Agent thật của backend.
   const handleProcessQuery = async (queryText: string) => {
     const q = queryText.trim();
-    if (!q) return;
 
-    // Stop previous speech & add user message
+    if (!q) {
+      return;
+    }
+
     stopSpeaking();
     setIsSpeaking(false);
     setIsListening(false);
@@ -192,65 +199,36 @@ export const HelpScreen: React.FC<HelpScreenProps> = ({
       id: `user-${Date.now()}`,
       role: 'user',
       text: q,
-      timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+      timestamp: new Date().toLocaleTimeString('vi-VN', {
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
     };
 
     setMessages((prev) => [...prev, userMsg]);
     setIsThinking(true);
     setUserQuery('');
 
-    const contextPayload = {
-      sensors: sensors || { systemStatus: 'safe', aqi: 42, temperature: 26, humidity: 55, gasLevelPpm: 12 },
-      rooms: rooms || [],
-      medications: medications.map((m) => ({ name: m.name, time: m.time, dosage: m.dosage, taken: m.taken })),
-      emergencyContacts: contacts.map((c) => ({ name: c.name, relation: c.relation, phone: c.phone })),
-    };
-
     let reply = '';
 
     try {
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: q,
-          context: contextPayload,
-          conversationHistory: messages.slice(-4),
-        }),
-      });
+      const result =
+        await backendService.askAiAgent(q);
 
-      if (res.ok) {
-        const data = await res.json();
-        reply = data.reply || '';
+      if (result?.success && result.answer) {
+        reply = result.answer;
       }
     } catch (err) {
-      console.warn('Chat request failed, using local assistant logic:', err);
+      console.warn(
+        'Không gọi được AI backend:',
+        err
+      );
     }
 
-    // Local smart fallback if server is unreachable
     if (!reply) {
-      const qLower = q.toLowerCase();
-      if (qLower.includes('thuốc') || qLower.includes('uống')) {
-        const pending = medications.filter((m) => !m.taken);
-        if (pending.length > 0) {
-          reply = `Dạ, hôm nay ông bà còn cữ thuốc: ${pending.map((m) => m.name).join(', ')} lúc ${pending[0].time}. Gia đình nhớ nhắc ông bà uống sau bữa ăn nhé ạ!`;
-        } else {
-          reply = 'Dạ, hôm nay ông bà đã uống đầy đủ các cữ thuốc đúng giờ rồi ạ. Rất tốt ạ!';
-        }
-      } else if (qLower.includes('bác sĩ') || qLower.includes('khám') || qLower.includes('bệnh')) {
-        reply = 'Dạ, Bác sĩ gia đình chăm sóc cho ông bà là BS. Trần Lan (Telegram: @bs_tranlan_eldercare, SĐT: 0988 765 432). Bạn có thể bấm nút Gọi Telegram ngay trong danh bạ bên dưới ạ!';
-      } else if (qLower.includes('ngã') || qLower.includes('té') || qLower.includes('đau')) {
-        reply = 'Dạ khi phát hiện ông bà trượt ngã, gia đình hãy giữ ông bà nằm yên tĩnh, tránh ngồi dậy đột ngột. Hãy bấm nút KHẨN CẤP màu đỏ để phát báo động và gọi Telegram kết nối người thân ngay!';
-      } else if (qLower.includes('gas') || qLower.includes('khí') || qLower.includes('bếp')) {
-        reply = 'Dạ nếu phát hiện mùi gas lạ ở bếp, gia đình tuyệt đối không bật công tắc điện, hãy mở toang cửa sổ thông gió và đưa ông bà ra khu vực thoáng mát ngoài phòng khách ngay.';
-      } else if (qLower.includes('sim') || qLower.includes('module') || qLower.includes('gsm') || qLower.includes('thẻ sim') || qLower.includes('sim800l')) {
-        reply = 'Dạ bạn hoàn toàn yên tâm nhé! Hệ thống 100% KHÔNG CẦN module SIM (như SIM800L/GSM) hay thẻ cước nào trên ESP32. Thiết bị chỉ kết nối Wi-Fi gửi MQTT, cảnh báo và cuộc gọi được Backend thực hiện qua Telegram trên Internet hoàn toàn miễn phí ạ!';
-      } else if (qLower.includes('nhà') || qLower.includes('an toàn') || qLower.includes('trạng thái') || qLower.includes('ông bà')) {
-        const status = sensors?.systemStatus === 'safe' ? 'rất an toàn' : 'cần lưu ý';
-        reply = `Dạ, tình trạng ngôi nhà và các phòng của ông bà hiện tại đang ${status}. Nhiệt độ phòng là ${sensors?.temperature || 26}°C, không khí trong lành, các camera đều hoạt động tốt ạ!`;
-      } else {
-        reply = `Dạ, Trợ lý Tâm An đã nghe rõ: "${q}". An toàn và sức khỏe của ông bà đang được hệ thống giám sát chu đáo. Bạn có thể hỏi thêm thông tin bất cứ lúc nào ạ!`;
-      }
+      reply =
+        'Hiện Tâm An chưa kết nối được với trợ lý AI. ' +
+        'Gia đình vui lòng kiểm tra kết nối tới hệ thống và thử lại sau.';
     }
 
     setIsThinking(false);
@@ -259,13 +237,16 @@ export const HelpScreen: React.FC<HelpScreenProps> = ({
       id: `ai-${Date.now()}`,
       role: 'assistant',
       text: reply,
-      timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+      timestamp: new Date().toLocaleTimeString('vi-VN', {
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
     };
 
     setMessages((prev) => [...prev, aiMsg]);
 
-    // Automatically speak the reply
     setIsSpeaking(true);
+
     speakVietnamese(reply, () => {
       setIsSpeaking(false);
     });
@@ -573,26 +554,52 @@ export const HelpScreen: React.FC<HelpScreenProps> = ({
             </h3>
           </div>
           <span className="text-xs font-bold text-purple-700 bg-purple-50 px-2.5 py-1 rounded-lg">
-            {medications.filter((m) => m.taken).length}/{medications.length} đã uống
+            {medicationLoading
+              ? 'Đang tải...'
+              : backendConnected === false
+                ? 'Mất kết nối'
+                : medications.length > 0
+                  ? `${medications.filter((m) => m.taken).length}/${medications.length} đã uống`
+                  : 'Chưa có lịch'}
           </span>
         </div>
 
         <div className="flex flex-col gap-2.5">
-          {medications.map((m) => (
+          {medicationLoading ? (
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-sm font-semibold text-slate-600 text-center">
+              Đang tải lịch uống thuốc hôm nay...
+            </div>
+          ) : backendConnected === false ? (
+            <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-sm font-semibold text-amber-800 text-center">
+              Mất kết nối Backend – chưa thể tải lịch uống thuốc.
+            </div>
+          ) : medications.length === 0 ? (
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-sm font-semibold text-slate-600 text-center">
+              Chưa có lịch uống thuốc cho hôm nay.
+            </div>
+          ) : (
+            medications.map((m) => (
             <div
               key={m.id}
-              onClick={() => onToggleMedication(m.id)}
-              className={`p-3.5 sm:p-4 rounded-2xl border flex items-center justify-between gap-3 cursor-pointer transition-all ${
-                m.taken
+              className={`p-3.5 sm:p-4 rounded-2xl border flex items-center justify-between gap-3 transition-all ${
+                m.status === 'taken'
                   ? 'bg-emerald-50/60 border-emerald-200'
-                  : 'bg-slate-50 border-slate-200 hover:bg-slate-100'
+                  : m.status === 'overdue'
+                    ? 'bg-red-50 border-red-200'
+                    : 'bg-slate-50 border-slate-200'
               }`}
             >
               <div className="flex items-center gap-3">
                 {m.taken ? (
                   <CheckCircle2 className="w-6 h-6 text-emerald-600 shrink-0" />
                 ) : (
-                  <Circle className="w-6 h-6 text-slate-400 shrink-0" />
+                  <Circle
+                    className={`w-6 h-6 shrink-0 ${
+                      m.status === 'overdue'
+                        ? 'text-red-500'
+                        : 'text-slate-400'
+                    }`}
+                  />
                 )}
                 <div>
                   <div className="flex items-center gap-2">
@@ -608,22 +615,41 @@ export const HelpScreen: React.FC<HelpScreenProps> = ({
                     </h4>
                   </div>
                   <p className="text-xs font-medium text-slate-600 mt-1">
-                    {m.dosage} • {m.note}
+                    {m.note}
                   </p>
                 </div>
               </div>
 
-              <span
-                className={`text-xs font-bold px-2.5 py-1 rounded-lg whitespace-nowrap ${
-                  m.taken
-                    ? 'bg-emerald-200 text-emerald-900'
-                    : 'bg-amber-100 text-amber-900'
-                }`}
-              >
-                {m.taken ? 'Đã uống' : 'Chưa uống'}
-              </span>
+              <div className="flex flex-col items-end gap-2 shrink-0">
+                <span
+                  className={`text-xs font-bold px-2.5 py-1 rounded-lg whitespace-nowrap ${
+                    m.status === 'taken'
+                      ? 'bg-emerald-200 text-emerald-900'
+                      : m.status === 'overdue'
+                        ? 'bg-red-100 text-red-800'
+                        : 'bg-amber-100 text-amber-900'
+                  }`}
+                >
+                  {m.status === 'taken'
+                    ? 'Đã uống'
+                    : m.status === 'overdue'
+                      ? 'Quá giờ'
+                      : 'Chưa đến giờ'}
+                </span>
+
+                {m.status === 'overdue' && (
+                  <button
+                    type="button"
+                    onClick={() => onToggleMedication(m.id)}
+                    className="px-3 py-1.5 rounded-xl bg-[#003f87] text-white text-xs font-bold hover:opacity-90 active:scale-95 transition"
+                  >
+                    Đã uống thuốc
+                  </button>
+                )}
+              </div>
             </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
 

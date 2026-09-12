@@ -79,6 +79,26 @@ if cap.isOpened():
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT)
     cap.set(cv2.CAP_PROP_FPS, CAMERA_FPS)
 
+    actual_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    actual_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    actual_fps = cap.get(cv2.CAP_PROP_FPS)
+
+    fourcc_value = int(cap.get(cv2.CAP_PROP_FOURCC))
+    actual_fourcc = "".join(
+        chr((fourcc_value >> (8 * i)) & 0xFF)
+        for i in range(4)
+    )
+
+    print(
+        f"[CAMERA] Requested: "
+        f"{CAMERA_WIDTH}x{CAMERA_HEIGHT} @ {CAMERA_FPS} FPS, MJPG"
+    )
+    print(
+        f"[CAMERA] Actual   : "
+        f"{actual_width}x{actual_height} @ {actual_fps:.2f} FPS, "
+        f"{actual_fourcc}"
+    )
+
 elif TEST_VIDEO:
     print(
         f"[CAMERA] Khong mo duoc camera index {CAMERA_INDEX}. "

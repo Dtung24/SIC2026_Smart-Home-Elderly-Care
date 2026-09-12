@@ -5,13 +5,13 @@ import { motion } from 'motion/react';
 interface StatusBannerProps {
   status: 'safe' | 'warning' | 'danger';
   alertMessage?: string;
-  onResetStatus?: () => void;
+  telemetryReady: boolean;
 }
 
 export const StatusBanner: React.FC<StatusBannerProps> = ({
   status,
   alertMessage,
-  onResetStatus,
+  telemetryReady,
 }) => {
   if (status === 'danger') {
     return (
@@ -35,14 +35,6 @@ export const StatusBanner: React.FC<StatusBannerProps> = ({
           </div>
         </div>
 
-        {onResetStatus && (
-          <button
-            onClick={onResetStatus}
-            className="px-4 py-2 bg-[#ba1a1a] text-white font-bold rounded-xl text-sm hover:bg-red-800 active:scale-95 transition-all shrink-0"
-          >
-            Đã xử lý
-          </button>
-        )}
       </motion.div>
     );
   }
@@ -69,14 +61,29 @@ export const StatusBanner: React.FC<StatusBannerProps> = ({
           </div>
         </div>
 
-        {onResetStatus && (
-          <button
-            onClick={onResetStatus}
-            className="px-4 py-2 bg-amber-600 text-white font-bold rounded-xl text-sm hover:bg-amber-700 active:scale-95 transition-all shrink-0"
-          >
-            Bỏ qua
-          </button>
-        )}
+      </motion.div>
+    );
+  }
+
+  if (!telemetryReady) {
+    return (
+      <motion.div
+        initial={{ scale: 0.98, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        className="w-full bg-slate-100 border border-slate-300 rounded-3xl p-6 sm:p-7 shadow-sm flex items-center justify-center gap-4"
+        id="status-banner-waiting"
+      >
+        <AlertTriangle className="w-9 h-9 text-slate-500" />
+
+        <div className="flex flex-col text-slate-700">
+          <h2 className="text-[24px] sm:text-[30px] font-black leading-tight tracking-tight">
+            ĐANG CHỜ DỮ LIỆU
+          </h2>
+
+          <p className="text-sm font-medium text-slate-500 mt-1">
+            Chưa nhận được dữ liệu cảm biến thực tế.
+          </p>
+        </div>
       </motion.div>
     );
   }

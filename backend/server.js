@@ -9,6 +9,8 @@ const mongoose = require("mongoose");
 const Telemetry = require("./models/Telemetry");
 const Incident = require("./models/Incident");
 const createAiRouter = require("./routes/aiRoutes");
+const createMedicationRouter = require("./routes/medicationRoutes");
+const { startMedicationScheduler } = require("./services/medicationScheduler");
 
 const app = express();
 const server = http.createServer(app);
@@ -21,10 +23,32 @@ const io = new Server(server, {
 
 app.use(cors());
 app.use(express.json());
+let mongoReady = false;
+let medicationSchedulerStarted = false;
+
+function maybeStartMedicationScheduler() {
+  if (
+    mongoReady &&
+    mqttClient.connected &&
+    !medicationSchedulerStarted
+  ) {
+    medicationSchedulerStarted = true;
+
+    startMedicationScheduler({
+      io,
+      mqttClient
+    });
+  }
+}
+
 mongoose.connect(process.env.MONGODB_URI, {
   dbName: "elderlycare"
 })
-  .then(() => console.log("✅ Đã kết nối MongoDB"))
+  .then(() => {
+    console.log("✅ Đã kết nối MongoDB");
+    mongoReady = true;
+    maybeStartMedicationScheduler();
+  })
   .catch((error) => console.error("❌ Lỗi MongoDB:", error.message));
 
 // Chỗ lưu dữ liệu mới nhất để test tuần 1
@@ -42,6 +66,14 @@ const latestData = {
   updatedAt: null
 };
 
+const lightState = {
+  livingroom: false,
+  kitchen: false,
+  staircase: false,
+  staircaseMode: "AUTO",
+  updatedAt: null
+};
+
 // AI Agent sử dụng dữ liệu cảm biến mới nhất trong bộ nhớ.
 app.use(
   "/api/chat",
@@ -50,8 +82,75 @@ app.use(
   })
 );
 
+app.use(
+  "/api/medications",
+  createMedicationRouter({ io })
+);
+
 // Kết nối từ backend tới Mosquitto trên chính Pi
 const mqttClient = mqtt.connect(process.env.MQTT_URL);
+
+// Xem trạng thái thật của 3 đèn
+app.get("/api/lights", (req, res) => {
+  res.json(lightState);
+});
+
+// Điều khiển đèn qua MQTT
+app.post("/api/lights/:room", (req, res) => {
+  const room = req.params.room;
+  const action = String(req.body.action || "").toUpperCase();
+
+  const validRooms = ["livingroom", "kitchen", "staircase"];
+
+  if (!validRooms.includes(room)) {
+    return res.status(400).json({
+      success: false,
+      message: "Phòng không hợp lệ"
+    });
+  }
+
+  const validActions =
+    room === "staircase"
+      ? ["ON", "OFF", "AUTO"]
+      : ["ON", "OFF"];
+
+  if (!validActions.includes(action)) {
+    return res.status(400).json({
+      success: false,
+      message: "Lệnh điều khiển không hợp lệ"
+    });
+  }
+
+  if (!mqttClient.connected) {
+    return res.status(503).json({
+      success: false,
+      message: "MQTT chưa kết nối"
+    });
+  }
+
+  const topic = `home/esp32/light/${room}/set`;
+
+  mqttClient.publish(
+    topic,
+    action,
+    { qos: 1 },
+    (error) => {
+      if (error) {
+        return res.status(500).json({
+          success: false,
+          message: error.message
+        });
+      }
+
+      res.json({
+        success: true,
+        room,
+        action,
+        topic
+      });
+    }
+  );
+});
 
 // API để test backend có chạy không
 app.get("/api/health", (req, res) => {
@@ -93,6 +192,8 @@ app.patch("/api/incidents/:id/status", async (req, res) => {
 mqttClient.on("connect", () => {
   console.log("✅ Đã kết nối MQTT:", process.env.MQTT_URL);
 
+  maybeStartMedicationScheduler();
+
   // Nghe tất cả topic bắt đầu bằng home/
   mqttClient.subscribe("home/#", (error) => {
     if (error) {
@@ -127,9 +228,64 @@ mqttClient.on("message", async (topic, messageBuffer) => {
     const isStatusTopic =
       topic.endsWith("/status");
 
-    // Backend chỉ xử lý các topic JSON mà nó cần.
-    // Các command như ON, OFF, FALL_ALARM_ON... sẽ được bỏ qua.
-    if (!isSensorTopic && !isAlertTopic && !isStatusTopic) {
+    const isLightStateTopic =
+      parts.length === 5 &&
+      parts[0] === "home" &&
+      parts[1] === "esp32" &&
+      parts[2] === "light" &&
+      parts[4] === "state";
+
+    const isStairModeTopic =
+      topic === "home/esp32/light/staircase/mode";
+
+    if (
+      !isSensorTopic &&
+      !isAlertTopic &&
+      !isStatusTopic &&
+      !isLightStateTopic &&
+      !isStairModeTopic
+    ) {
+      return;
+    }
+
+    if (isLightStateTopic) {
+      const room = parts[3];
+      const value =
+        messageBuffer.toString().trim().toUpperCase();
+
+      if (
+        room === "livingroom" ||
+        room === "kitchen" ||
+        room === "staircase"
+      ) {
+        lightState[room] = value === "ON";
+        lightState.updatedAt = new Date().toISOString();
+
+        io.emit("light:update", {
+          room,
+          state: lightState[room],
+          timestamp: lightState.updatedAt
+        });
+      }
+
+      return;
+    }
+
+    if (isStairModeTopic) {
+      const mode =
+        messageBuffer.toString().trim().toUpperCase();
+
+      if (["AUTO", "ON", "OFF"].includes(mode)) {
+        lightState.staircaseMode = mode;
+        lightState.updatedAt = new Date().toISOString();
+
+        io.emit("light:update", {
+          room: "staircase",
+          mode,
+          timestamp: lightState.updatedAt
+        });
+      }
+
       return;
     }
 
@@ -231,6 +387,7 @@ io.on("connection", (socket) => {
 
   // Web vừa vào sẽ nhận data hiện có ngay
   socket.emit("telemetry:latest", latestData);
+  socket.emit("light:latest", lightState);
 
   socket.on("disconnect", () => {
     console.log("Dashboard đã ngắt:", socket.id);

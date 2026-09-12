@@ -81,6 +81,10 @@ unsigned long lastMqttAttemptMs = 0;
 unsigned long wifiLostSinceMs = 0;
 unsigned long lastStairMotionMs = 0;
 
+// Trạng thái PIR cuối cùng đã gửi MQTT.
+// -1 để lần đọc đầu tiên cũng được publish.
+int lastPublishedStairMotion = -1;
+
 // ---------------- LIGHT STATE ----------------
 
 bool livingroomLedOn = false;
@@ -745,7 +749,29 @@ void handleStaircasePIR() {
   int motion =
       digitalRead(PIR_STAIR_PIN);
 
-  // Chỉ PIR điều khiển khi cầu thang ở AUTO
+  // Gửi MQTT ngay khi PIR đổi trạng thái,
+  // không chờ chu kỳ telemetry 2 giây.
+  if (motion != lastPublishedStairMotion) {
+    if (client.connected()) {
+      publishTelemetry(
+          "staircase",
+          "motion",
+          motion,
+          "boolean",
+          "NONE"
+      );
+
+      lastPublishedStairMotion = motion;
+
+      Serial.printf(
+          "[PIR MQTT] Stair motion -> %d\n",
+          motion
+      );
+    }
+  }
+
+  // Chỉ PIR điều khiển đèn khi cầu thang ở AUTO.
+  // Việc báo motion MQTT vẫn hoạt động ở mọi mode.
   if (stairMode != STAIR_AUTO) {
     return;
   }

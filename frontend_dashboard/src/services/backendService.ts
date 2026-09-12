@@ -5,6 +5,14 @@ import {
   BackendAlertNew,
   BackendDeviceStatus,
   BackendIncident,
+  AiChatResponse,
+  BackendLightState,
+  BackendLightUpdate,
+  LightRoomId,
+  LightAction,
+  BackendMedicationReminder,
+  BackendMedicationEvent,
+  MedicationSlot,
 } from '../types';
 
 // Default base URL from Backend Contract
@@ -23,6 +31,18 @@ class BackendService {
   private telemetryUpdateListeners: Set<(data: BackendTelemetryUpdate) => void> = new Set();
   private alertListeners: Set<(alert: BackendAlertNew) => void> = new Set();
   private deviceStatusListeners: Set<(status: BackendDeviceStatus) => void> = new Set();
+
+  private medicationUpdateListeners:
+    Set<(data: BackendMedicationEvent) => void> = new Set();
+
+  private medicationOverdueListeners:
+    Set<(data: BackendMedicationEvent) => void> = new Set();
+
+  private lightLatestListeners:
+    Set<(state: BackendLightState) => void> = new Set();
+
+  private lightUpdateListeners:
+    Set<(update: BackendLightUpdate) => void> = new Set();
 
   constructor() {
     // Load persisted custom URL if any
@@ -89,6 +109,34 @@ class BackendService {
     return () => this.deviceStatusListeners.delete(callback);
   }
 
+  public subscribeMedicationUpdate(
+    callback: (data: BackendMedicationEvent) => void
+  ): () => void {
+    this.medicationUpdateListeners.add(callback);
+    return () => this.medicationUpdateListeners.delete(callback);
+  }
+
+  public subscribeMedicationOverdue(
+    callback: (data: BackendMedicationEvent) => void
+  ): () => void {
+    this.medicationOverdueListeners.add(callback);
+    return () => this.medicationOverdueListeners.delete(callback);
+  }
+
+  public subscribeLightLatest(
+    callback: (state: BackendLightState) => void
+  ): () => void {
+    this.lightLatestListeners.add(callback);
+    return () => this.lightLatestListeners.delete(callback);
+  }
+
+  public subscribeLightUpdate(
+    callback: (update: BackendLightUpdate) => void
+  ): () => void {
+    this.lightUpdateListeners.add(callback);
+    return () => this.lightUpdateListeners.delete(callback);
+  }
+
   private notifyConnectionStatus(connected: boolean) {
     this.isConnected = connected;
     this.connectionStatusListeners.forEach((cb) => cb(connected, this.baseUrl));
@@ -150,6 +198,26 @@ class BackendService {
       this.socket.on('device:status', (status: BackendDeviceStatus) => {
         console.log('[Socket.IO Event] device:status received:', status);
         this.deviceStatusListeners.forEach((cb) => cb(status));
+      });
+
+      this.socket.on('medication:update', (data: BackendMedicationEvent) => {
+        console.log('[Socket.IO Event] medication:update received:', data);
+        this.medicationUpdateListeners.forEach((cb) => cb(data));
+      });
+
+      this.socket.on('medication:overdue', (data: BackendMedicationEvent) => {
+        console.log('[Socket.IO Event] medication:overdue received:', data);
+        this.medicationOverdueListeners.forEach((cb) => cb(data));
+      });
+
+      this.socket.on('light:latest', (state: BackendLightState) => {
+        console.log('[Socket.IO Event] light:latest received:', state);
+        this.lightLatestListeners.forEach((cb) => cb(state));
+      });
+
+      this.socket.on('light:update', (update: BackendLightUpdate) => {
+        console.log('[Socket.IO Event] light:update received:', update);
+        this.lightUpdateListeners.forEach((cb) => cb(update));
       });
     } catch (err) {
       console.warn('[Socket.IO] Init failed:', err);
@@ -231,6 +299,60 @@ class BackendService {
   }
 
   /**
+   * POST /api/chat
+   * Gửi câu hỏi tới AI Agent thật trong backend cổng 3000.
+   */
+  public async askAiAgent(
+    message: string
+  ): Promise<AiChatResponse | null> {
+    const cleanMessage = message.trim();
+
+    if (!cleanMessage) {
+      return null;
+    }
+
+    try {
+      const res = await fetch(`${this.baseUrl}/api/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({
+          message: cleanMessage,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error(
+          `HTTP error ${res.status}: ${res.statusText}`
+        );
+      }
+
+      const data = await res.json();
+
+      if (
+        !data ||
+        data.success !== true ||
+        typeof data.answer !== 'string'
+      ) {
+        throw new Error(
+          'AI backend response không đúng contract'
+        );
+      }
+
+      return data as AiChatResponse;
+    } catch (err) {
+      console.warn(
+        `[REST API] Failed to POST /api/chat to ${this.baseUrl}:`,
+        err
+      );
+
+      return null;
+    }
+  }
+
+  /**
    * PATCH /api/incidents/:id/status
    * Body: { "status": "acknowledged" } hoặc { "status": "resolved" }
    */
@@ -253,6 +375,155 @@ class BackendService {
       return true;
     } catch (err) {
       console.warn(`[REST API] Failed to patch incident ${id} status:`, err);
+      return false;
+    }
+  }
+  /**
+   * GET /api/medications/today
+   * Lấy lịch uống thuốc thật của ngày hiện tại.
+   */
+  public async fetchMedicationsToday(): Promise<BackendMedicationReminder[] | null> {
+    try {
+      const res = await fetch(`${this.baseUrl}/api/medications/today`, {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+        },
+      });
+
+      if (!res.ok) {
+        throw new Error(
+          `HTTP error ${res.status}: ${res.statusText}`
+        );
+      }
+
+      const data = await res.json();
+
+      if (
+        !data ||
+        data.success !== true ||
+        !Array.isArray(data.reminders)
+      ) {
+        throw new Error('Medication response không đúng contract');
+      }
+
+      return data.reminders as BackendMedicationReminder[];
+    } catch (err) {
+      console.warn(
+        `[REST API] Failed to fetch /api/medications/today from ${this.baseUrl}:`,
+        err
+      );
+      return null;
+    }
+  }
+
+  /**
+   * PATCH /api/medications/:slot/taken
+   * Xác nhận đã uống thuốc.
+   */
+  public async markMedicationTaken(
+    slot: MedicationSlot
+  ): Promise<BackendMedicationReminder | null> {
+    try {
+      const res = await fetch(
+        `${this.baseUrl}/api/medications/${slot}/taken`,
+        {
+          method: 'PATCH',
+          headers: {
+            Accept: 'application/json',
+          },
+        }
+      );
+
+      if (!res.ok) {
+        throw new Error(
+          `HTTP error ${res.status}: ${res.statusText}`
+        );
+      }
+
+      const data = await res.json();
+
+      if (
+        !data ||
+        data.success !== true ||
+        !data.reminder
+      ) {
+        throw new Error('Medication PATCH response không đúng contract');
+      }
+
+      return data.reminder as BackendMedicationReminder;
+    } catch (err) {
+      console.warn(
+        `[REST API] Failed to mark medication ${slot} as taken:`,
+        err
+      );
+      return null;
+    }
+  }
+
+  /**
+   * GET /api/lights
+   * Lấy trạng thái thật mới nhất của 3 đèn.
+   */
+  public async fetchLights(): Promise<BackendLightState | null> {
+    try {
+      const res = await fetch(`${this.baseUrl}/api/lights`, {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+        },
+      });
+
+      if (!res.ok) {
+        throw new Error(
+          `HTTP error ${res.status}: ${res.statusText}`
+        );
+      }
+
+      return await res.json() as BackendLightState;
+    } catch (err) {
+      console.warn(
+        `[REST API] Failed to fetch /api/lights from ${this.baseUrl}:`,
+        err
+      );
+      return null;
+    }
+  }
+
+  /**
+   * POST /api/lights/:room
+   * Backend -> MQTT -> ESP32.
+   */
+  public async controlLight(
+    room: LightRoomId,
+    action: LightAction
+  ): Promise<boolean> {
+    try {
+      const res = await fetch(
+        `${this.baseUrl}/api/lights/${room}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+          },
+          body: JSON.stringify({ action }),
+        }
+      );
+
+      if (!res.ok) {
+        throw new Error(
+          `HTTP error ${res.status}: ${res.statusText}`
+        );
+      }
+
+      const result = await res.json();
+      return result?.success === true;
+    } catch (err) {
+      console.warn(
+        `[REST API] Failed to control light ${room}:`,
+        err
+      );
       return false;
     }
   }

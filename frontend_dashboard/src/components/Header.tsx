@@ -6,16 +6,23 @@ import { BackendStatusBadge } from './BackendStatusBadge';
 interface HeaderProps {
   onEmergencyClick: () => void;
   systemStatus: 'safe' | 'warning' | 'danger';
+  telemetryReady: boolean;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onEmergencyClick, systemStatus }) => {
+export const Header: React.FC<HeaderProps> = ({
+  onEmergencyClick,
+  systemStatus,
+  telemetryReady,
+}) => {
   const handleVoiceStatus = () => {
-    if (systemStatus === 'safe') {
-      speakVietnamese('Trạng thái ngôi nhà và an toàn của ông bà đang an toàn. Nhiệt độ hai mươi sáu độ C. Khí gas và chất lượng không khí bình thường.');
+    if (systemStatus === 'danger') {
+      speakVietnamese('Cảnh báo nguy hiểm. Đang kích hoạt chế độ cứu hộ khẩn cấp cho gia đình.');
     } else if (systemStatus === 'warning') {
       speakVietnamese('Cảnh báo. Phát hiện chỉ số môi trường bất thường tại nhà ông bà. Vui lòng kiểm tra ứng dụng.');
+    } else if (!telemetryReady) {
+      speakVietnamese('Hệ thống đang chờ dữ liệu cảm biến thực tế.');
     } else {
-      speakVietnamese('Cảnh báo nguy hiểm. Đang kích hoạt chế độ cứu hộ khẩn cấp cho gia đình.');
+      speakVietnamese('Các cảm biến hiện đang báo trạng thái an toàn.');
     }
   };
 
@@ -33,8 +40,16 @@ export const Header: React.FC<HeaderProps> = ({ onEmergencyClick, systemStatus }
                 AI
               </span>
               <span className="relative flex h-2.5 w-2.5">
-                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${systemStatus === 'safe' ? 'bg-emerald-400' : 'bg-red-400'}`}></span>
-                <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${systemStatus === 'safe' ? 'bg-emerald-500' : 'bg-red-600'}`}></span>
+                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${systemStatus === 'danger' || systemStatus === 'warning'
+  ? 'bg-red-400'
+  : telemetryReady
+    ? 'bg-emerald-400'
+    : 'bg-slate-400'}`}></span>
+                <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${systemStatus === 'danger' || systemStatus === 'warning'
+  ? 'bg-red-600'
+  : telemetryReady
+    ? 'bg-emerald-500'
+    : 'bg-slate-500'}`}></span>
               </span>
             </div>
           </div>

@@ -1,12 +1,10 @@
 import React, { useState } from 'react';
-import { Sliders, ShieldCheck, Flame, UserX, ThermometerSun, Wind, X } from 'lucide-react';
+import { Sliders, ShieldCheck, Flame, UserX, X } from 'lucide-react';
 
 interface SimulationBarProps {
   onSetSafe: () => void;
   onSimulateGasLeak: () => void;
   onSimulateFall: () => void;
-  onSimulateHighTemp: () => void;
-  onSimulateAirPollution: () => void;
   currentStatus: 'safe' | 'warning' | 'danger';
 }
 
@@ -14,8 +12,6 @@ export const SimulationBar: React.FC<SimulationBarProps> = ({
   onSetSafe,
   onSimulateGasLeak,
   onSimulateFall,
-  onSimulateHighTemp,
-  onSimulateAirPollution,
   currentStatus,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -72,7 +68,7 @@ export const SimulationBar: React.FC<SimulationBarProps> = ({
                 className="p-2.5 bg-emerald-700 hover:bg-emerald-600 rounded-xl text-xs font-bold flex items-center gap-2 justify-center transition-all"
               >
                 <ShieldCheck className="w-4 h-4" />
-                <span>1. Chuẩn An Toàn 3 Phòng</span>
+                <span>1. Khôi phục trạng thái an toàn</span>
               </button>
 
               <button
@@ -97,27 +93,6 @@ export const SimulationBar: React.FC<SimulationBarProps> = ({
                 <span>3. Camera Té Ngã (Khách)</span>
               </button>
 
-              <button
-                onClick={() => {
-                  onSimulateHighTemp();
-                  setIsOpen(false);
-                }}
-                className="p-2.5 bg-amber-700 hover:bg-amber-600 rounded-xl text-xs font-bold flex items-center gap-2 justify-center transition-all"
-              >
-                <ThermometerSun className="w-4 h-4" />
-                <span>4. Nhiệt cao Phòng Ngủ 38°C</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  onSimulateAirPollution();
-                  setIsOpen(false);
-                }}
-                className="col-span-2 p-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-xs font-bold flex items-center gap-2 justify-center transition-all"
-              >
-                <Wind className="w-4 h-4 text-blue-400" />
-                <span>5. Cảnh báo Bụi mịn PM2.5 (Phòng Khách)</span>
-              </button>
             </div>
           </div>
         </div>

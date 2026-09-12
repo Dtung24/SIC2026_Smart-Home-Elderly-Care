@@ -3,7 +3,6 @@ import {
   ShieldCheck,
   AlertTriangle,
   Flame,
-  Wind,
   Pill,
   Clock,
   Filter,
@@ -24,7 +23,7 @@ export const LogScreen: React.FC<LogScreenProps> = ({ logs, onResolveLog }) => {
   const filteredLogs = logs.filter((log) => {
     if (filterType === 'all') return true;
     if (filterType === 'ai') return log.type === 'ai_camera';
-    if (filterType === 'sensors') return log.type === 'gas' || log.type === 'air' || log.type === 'climate';
+    if (filterType === 'sensors') return log.type === 'gas' || log.type === 'climate';
     if (filterType === 'medication') return log.type === 'medication';
     if (filterType === 'alert') return log.level === 'warning' || log.level === 'danger';
     return true;
@@ -38,8 +37,6 @@ export const LogScreen: React.FC<LogScreenProps> = ({ logs, onResolveLog }) => {
         return <ShieldCheck className="w-5 h-5 text-emerald-600" />;
       case 'gas':
         return <Flame className="w-5 h-5 text-orange-500" />;
-      case 'air':
-        return <Wind className="w-5 h-5 text-blue-500" />;
       case 'medication':
         return <Pill className="w-5 h-5 text-purple-500" />;
       default:

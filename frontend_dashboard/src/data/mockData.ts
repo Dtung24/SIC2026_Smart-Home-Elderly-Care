@@ -1,4 +1,4 @@
-import { RoomCamera, SensorState, ActivityLog, EmergencyContact, MedicationReminder } from '../types';
+import { RoomCamera, SensorState, ActivityLog, EmergencyContact } from '../types';
 
 export const INITIAL_ROOMS: RoomCamera[] = [
   {
@@ -27,116 +27,47 @@ export const INITIAL_ROOMS: RoomCamera[] = [
     lastMotionTime: '25 phút trước',
   },
   {
-    id: 'bedroom',
-    name: 'Phòng Ngủ',
-    location: 'Tầng 2 - Phòng nghỉ ngơi của Bà',
+    id: 'staircase',
+    name: 'Cầu Thang',
+    location: 'Khu vực cầu thang',
     hasCamera: false,
-    aiStatusText: 'Môi trường nghỉ ngơi lý tưởng',
+    aiStatusText: 'Cảm biến PIR đang giám sát chuyển động',
     aiStatusLevel: 'safe',
     personDetected: false,
-    activityNote: 'Nhiệt độ 25.2°C, độ ẩm 50% chuẩn y khoa',
-    lastMotionTime: '2 giờ trước',
+    activityNote: 'Chưa phát hiện chuyển động',
+    lastMotionTime: 'Chưa phát hiện',
   },
 ];
 
 export const INITIAL_SENSOR_STATE: SensorState = {
   gasStatus: 'normal',
-  gasLevelPpm: 12, // normal < 50 ppm
-  airQuality: 'clean',
-  aqi: 28, // Good AQI (0-50)
-  pm25: 8.5,
-  temperature: 26.5,
-  humidity: 55,
-  lastUpdated: 'Vừa xong',
+  temperature: null,
+  humidity: null,
+  lastUpdated: 'Chưa có dữ liệu',
   systemStatus: 'safe',
   rooms: {
     livingroom: {
-      temperature: 26.5,
-      humidity: 55,
-      motion: true,
-      gas: 12,
+      temperature: null,
+      humidity: null,
+      motion: null,
+      gas: null,
     },
     kitchen: {
-      temperature: 28.0,
-      humidity: 62,
-      motion: false,
-      gas: 15,
+      temperature: null,
+      humidity: null,
+      motion: null,
+      gas: null,
     },
-    bedroom: {
-      temperature: 25.2,
-      humidity: 50,
+    staircase: {
+      temperature: null,
+      humidity: null,
       motion: false,
-      gas: 8,
+      gas: null,
     },
   },
 };
 
-export const INITIAL_LOGS: ActivityLog[] = [
-  {
-    id: 'log-1',
-    timestamp: '14:35:10 - Hôm nay',
-    timeAgo: '5 phút trước',
-    type: 'ai_camera',
-    title: 'Kiểm tra an toàn định kỳ AI',
-    detail: 'Camera Phòng Khách: Tư thế sinh hoạt ổn định, không có dấu hiệu trượt ngã hay cử động bất thường.',
-    level: 'success',
-    room: 'Phòng Khách',
-    resolved: true,
-  },
-  {
-    id: 'log-2',
-    timestamp: '12:00:00 - Hôm nay',
-    timeAgo: '2 giờ trước',
-    type: 'medication',
-    title: 'Nhắc uống thuốc trưa',
-    detail: 'Đã hoàn thành: Thuốc huyết áp (1 viên) & Vitamin D3.',
-    level: 'info',
-    resolved: true,
-  },
-  {
-    id: 'log-3',
-    timestamp: '11:15:22 - Hôm nay',
-    timeAgo: '3 giờ trước',
-    type: 'gas',
-    title: 'Cảm biến khí Gas khu vực Bếp',
-    detail: 'Nồng độ khí gas 15 ppm - An toàn dưới ngưỡng cảnh báo (50 ppm).',
-    level: 'info',
-    room: 'Nhà Bếp',
-    resolved: true,
-  },
-  {
-    id: 'log-4',
-    timestamp: '08:30:45 - Hôm nay',
-    timeAgo: '6 giờ trước',
-    type: 'air',
-    title: 'Chỉ số không khí trong lành',
-    detail: 'AQI đạt 24, bụi mịn PM2.5 ở mức 7.2 µg/m³. Máy lọc không khí đang hoạt động êm ái.',
-    level: 'success',
-    resolved: true,
-  },
-  {
-    id: 'log-5',
-    timestamp: '06:15:00 - Hôm nay',
-    timeAgo: '8 giờ trước',
-    type: 'ai_camera',
-    title: 'Nhận diện thức dậy buổi sáng',
-    detail: 'Bà thức dậy lúc 06:15 và di chuyển ra phòng khách tập thể dục nhẹ nhàng.',
-    level: 'info',
-    room: 'Phòng Ngủ',
-    resolved: true,
-  },
-  {
-    id: 'log-6',
-    timestamp: '21:30:00 - Hôm qua',
-    timeAgo: 'Hôm qua',
-    type: 'climate',
-    title: 'Điều hòa tự động cân bằng nhiệt',
-    detail: 'Nhiệt độ phòng ngủ duy trì lý tưởng 26.5°C, độ ẩm 58%.',
-    level: 'info',
-    room: 'Phòng Ngủ',
-    resolved: true,
-  },
-];
+export const INITIAL_LOGS: ActivityLog[] = [];
 
 export const INITIAL_CONTACTS: EmergencyContact[] = [
   {
@@ -190,32 +121,5 @@ export const INITIAL_CONTACTS: EmergencyContact[] = [
     avatar: '',
     isPrimary: false,
     notes: 'Sự cố rò rỉ gas / hỏa hoạn',
-  },
-];
-
-export const INITIAL_MEDICATIONS: MedicationReminder[] = [
-  {
-    id: 'med-1',
-    time: '07:30',
-    name: 'Thuốc Huyết Áp (Amlodipine 5mg)',
-    dosage: '1 viên sau ăn sáng',
-    taken: true,
-    note: 'Đã uống lúc 07:45',
-  },
-  {
-    id: 'med-2',
-    time: '12:00',
-    name: 'Thuốc Tim Mạch & Bổ Não',
-    dosage: '1 viên sau ăn trưa',
-    taken: true,
-    note: 'Đã uống lúc 12:05',
-  },
-  {
-    id: 'med-3',
-    time: '19:30',
-    name: 'Canxi & Vitamin D3',
-    dosage: '1 viên sau ăn tối',
-    taken: false,
-    note: 'Chưa đến giờ uống',
   },
 ];
