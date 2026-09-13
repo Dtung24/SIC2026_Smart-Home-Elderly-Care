@@ -1,5 +1,4 @@
 node_modules/
-<<<<<<< HEAD
 build/
 dist/
 coverage/
@@ -8,7 +7,3 @@ coverage/
 .env*
 !.env.example
 .vercel
-=======
-.env
-*.log
->>>>>>> ffbf34c9b1dfdcff5416ecf6d224d3eb28101675

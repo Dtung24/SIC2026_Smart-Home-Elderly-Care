@@ -238,8 +238,4 @@ npm start
 ---
 
 ## 📜 Bản Quyền & Giấy Phép (License)
-<<<<<<< HEAD
 Dự án được thực hiện phục vụ học tập và nghiên cứu trong khuôn khổ **Samsung Innovation Campus 2026**. Mã nguồn được phân phối dưới giấy phép [MIT License](LICENSE).
-=======
-Dự án được thực hiện phục vụ học tập và nghiên cứu trong khuôn khổ **Samsung Innovation Campus 2026**. Mã nguồn được phân phối dưới giấy phép [MIT License](LICENSE).
->>>>>>> ffbf34c9b1dfdcff5416ecf6d224d3eb28101675
