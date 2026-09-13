@@ -1,5 +1,6 @@
 import json
 import os
+import socket
 from datetime import datetime
 from pathlib import Path
 
@@ -44,10 +45,52 @@ DEVICE_ID = os.getenv(
 )
 
 # Địa chỉ FastAPI dùng để mở snapshot trên web
-PUBLIC_BASE_URL = os.getenv(
-    "PUBLIC_BASE_URL",
-    "http://127.0.0.1:8000"
-).rstrip("/")
+def resolve_public_base_url():
+    configured = os.getenv("PUBLIC_BASE_URL", "auto").strip()
+
+    # Nếu người dùng nhập URL/IP cụ thể thì dùng nguyên cấu hình đó
+    if configured and configured.lower() != "auto":
+        if not configured.startswith(("http://", "https://")):
+            configured = f"http://{configured}"
+        return configured.rstrip("/")
+
+    # PUBLIC_BASE_URL=auto:
+    # tự lấy IPv4 LAN hiện tại của Raspberry Pi
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+    try:
+        # Không cần Internet thật; mục đích là để hệ điều hành
+        # chọn interface mạng đang hoạt động.
+        sock.connect(("8.8.8.8", 80))
+        ip = sock.getsockname()[0]
+
+        if ip and not ip.startswith("127."):
+            return f"http://{ip}:8000"
+
+    except OSError:
+        pass
+
+    finally:
+        sock.close()
+
+    # Fallback nếu máy không có default route
+    try:
+        for info in socket.getaddrinfo(
+            socket.gethostname(),
+            None,
+            family=socket.AF_INET
+        ):
+            ip = info[4][0]
+
+            if ip and not ip.startswith("127."):
+                return f"http://{ip}:8000"
+    except OSError:
+        pass
+
+    return "http://127.0.0.1:8000"
+
+
+PUBLIC_BASE_URL = resolve_public_base_url()
 
 
 # ============================================================
