@@ -190,26 +190,12 @@ class FallDetectorV2:
         }
 
         # -------------------------------------------------
-        # KHÔNG THẤY NGƯỜI
+        # CHẤT LƯỢNG QUAN SÁT / GÓC KHUẤT
         # -------------------------------------------------
 
-        if (
-            not person_detected
-            or body_ratio is None
-            or center_y_norm is None
-        ):
-            self.suspicious_start = None
-
-            if self.fall_active:
-                result["state"] = "PERSON_LOST"
-                result["alarm_state"] = "FALL_ACTIVE"
-            else:
-                result["state"] = "NO_PERSON"
-                result["alarm_state"] = "CLEAR"
-
-            return result
-
-        result["vision_state"] = "PERSON_TRACKED"
+        # Trim history trước khi xử lý frame không chắc chắn,
+        # tránh giữ motion cũ quá lâu khi người đi vào góc khuất.
+        self._trim_history(now)
 
         pose_reliable = (
             body_angle is not None
@@ -221,7 +207,86 @@ class FallDetectorV2:
             and core_ratio > 0
         )
 
+        geometry_available = (
+            body_ratio is not None
+            and center_y_norm is not None
+        )
+
         result["pose_reliable"] = pose_reliable
+
+        # -------------------------------------------------
+        # KHÔNG CÒN THẤY NGƯỜI
+        # -------------------------------------------------
+
+        if not person_detected:
+            self.suspicious_start = None
+
+            # Một FALL chưa xác nhận không được tiếp tục
+            # chỉ dựa trên frame bị mất người.
+            self.fall_candidate_start = None
+
+            if self.fall_active:
+                # FALL đã được xác nhận trước khi mất người:
+                # giữ nguyên cảnh báo, tuyệt đối không tự SAFE.
+                self.safe_candidate_start = None
+                self.safe_last_true_time = None
+                self.safe_votes.clear()
+
+                result["state"] = "FALL_ACTIVE"
+                result["vision_state"] = "PERSON_LOST"
+                result["alarm_state"] = "FALL_ACTIVE"
+
+            else:
+                # Nếu vừa mới còn thấy người rồi mất trong
+                # cửa sổ history thì coi là góc khuất tạm thời.
+                recent_person_context = bool(self.history)
+
+                if recent_person_context:
+                    result["state"] = "SUSPICIOUS"
+                    result["vision_state"] = "PERSON_LOST"
+                else:
+                    result["state"] = "NO_PERSON"
+                    result["vision_state"] = "NO_PERSON"
+
+                result["alarm_state"] = "CLEAR"
+
+            return result
+
+        result["vision_state"] = "PERSON_TRACKED"
+
+        # -------------------------------------------------
+        # THẤY NGƯỜI NHƯNG POSE / HÌNH HỌC KHÔNG ĐỦ TIN CẬY
+        # -------------------------------------------------
+
+        observation_uncertain = (
+            not geometry_available
+            or not pose_reliable
+            or not core_valid
+        )
+
+        if observation_uncertain:
+            # Khi chưa có FALL được xác nhận:
+            # pose kém / góc khuất chỉ được SUSPICIOUS.
+            # Không cho frame mơ hồ tạo hoặc xác nhận FALL mới.
+            self.fall_candidate_start = None
+
+            if self.fall_active:
+                # FALL đã xác nhận thì mất pose không được clear.
+                # Recovery phải bắt đầu lại khi pose rõ trở lại.
+                self.safe_candidate_start = None
+                self.safe_last_true_time = None
+                self.safe_votes.clear()
+
+                result["state"] = "FALL_ACTIVE"
+                result["alarm_state"] = "FALL_ACTIVE"
+            else:
+                result["state"] = "SUSPICIOUS"
+                result["alarm_state"] = "CLEAR"
+
+            return result
+
+        # Từ đây trở xuống observation đủ tin cậy.
+        self.suspicious_start = None
 
         # -------------------------------------------------
         # HISTORY / TEMPORAL FEATURES
@@ -395,24 +460,21 @@ class FallDetectorV2:
 
         # Sau khi đã phát hiện chuyển động rơi,
         # tư thế này giúp giữ candidate tới lúc xác nhận.
-        if pose_reliable:
-            if self.baseline_ready:
-                # Khi skeleton đáng tin, thân người phải thực sự
-                # rời khỏi baseline mới được giữ FALL candidate.
-                post_transition_posture = (
-                    angle_delta >= self.angle_delta_shape
-                )
-            else:
-                # Fallback lúc mới khởi động, chưa học đủ baseline.
-                post_transition_posture = (
-                    body_angle is not None
-                    and body_angle >= 45.0
-                )
-        else:
-            # Pose kém/góc khuất: cho hình học + temporal cứu detection.
+        # Tới đây pose đã đủ tin cậy.
+        # Frame pose kém/góc khuất đã được trả về SUSPICIOUS
+        # ở phía trên và không được phép xác nhận FALL mới.
+        if self.baseline_ready:
+            # Thân người phải thực sự rời khỏi baseline
+            # mới được giữ FALL candidate.
             post_transition_posture = (
-                core_lying
-                or body_ratio >= self.bbox_latch_threshold
+                angle_delta >= self.angle_delta_shape
+            )
+        else:
+            # Fallback lúc mới khởi động,
+            # chưa học đủ baseline cá nhân.
+            post_transition_posture = (
+                body_angle is not None
+                and body_angle >= 45.0
             )
 
         # -------------------------------------------------

@@ -920,50 +920,51 @@ try:
 
 
         # ----------------------------------------------------
-        # Hiển thị thông số lên frame
+        # Hiển thị thông số Final Demo
         # ----------------------------------------------------
 
+        # Chỉ hiển thị các metric dễ giải thích khi demo.
+        # Các feature debug như BBox, LegA, Drop, dR
+        # vẫn được tính cho thuật toán nhưng không vẽ lên frame.
+
         cv2.putText(
             annotated_frame,
-            f"FPS: {fps:.1f}",
+            "AI FALL DETECTION V2",
             (20, 35),
             cv2.FONT_HERSHEY_SIMPLEX,
-            0.7,
-            (0, 255, 0),
+            0.75,
+            (255, 255, 255),
             2
         )
 
         cv2.putText(
             annotated_frame,
-            f"Inference: {inference_ms:.0f} ms",
+            (
+                f"FPS: {fps:.1f} | "
+                f"Inference: {inference_ms:.0f} ms"
+            ),
             (20, 65),
             cv2.FONT_HERSHEY_SIMPLEX,
-            0.7,
+            0.6,
             (0, 255, 0),
             2
         )
 
-        if body_angle is not None:
-            cv2.putText(
-                annotated_frame,
-                f"Angle: {body_angle:.1f}",
-                (20, 95),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.7,
-                (255, 255, 0),
-                2
-            )
+        angle_text = (
+            f"{body_angle:.1f} deg"
+            if body_angle is not None
+            else "N/A"
+        )
 
-        if body_ratio is not None:
-            cv2.putText(
-                annotated_frame,
-                f"BBox W/H: {body_ratio:.2f}",
-                (20, 125),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.65,
-                (255, 255, 0),
-                2
-            )
+        cv2.putText(
+            annotated_frame,
+            f"Body Angle: {angle_text}",
+            (20, 100),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.65,
+            (255, 255, 0),
+            2
+        )
 
         core_text = (
             f"{core_ratio:.2f}"
@@ -973,74 +974,51 @@ try:
 
         cv2.putText(
             annotated_frame,
-            f"Core W/H: {core_text}",
-            (20, 150),
+            f"Core Ratio: {core_text}",
+            (20, 130),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.65,
             (255, 255, 0),
             2
         )
 
-        pose_flag = (
-            "OK"
-            if detector_result["pose_reliable"]
-            else "LOW"
+        fall_speed = float(
+            detector_result.get(
+                "vertical_drop_rate",
+                0.0
+            ) or 0.0
         )
 
         cv2.putText(
             annotated_frame,
-            (
-                f"PoseQ: {pose_quality:.2f} [{pose_flag}]"
-            ),
-            (20, 175),
+            f"Fall Speed: {fall_speed:.2f} /s",
+            (20, 160),
             cv2.FONT_HERSHEY_SIMPLEX,
-            0.6,
-            (255, 255, 0),
-            2
-        )
-
-        leg_text = (
-            f"{leg_angle:.1f}"
-            if leg_angle is not None
-            else "N/A"
-        )
-
-        cv2.putText(
-            annotated_frame,
-            (
-                f"LegA: {leg_text} "
-                f"[{leg_count}] Q:{leg_quality:.2f}"
-            ),
-            (20, 200),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.6,
+            0.65,
             (255, 255, 0),
             2
         )
 
         cv2.putText(
             annotated_frame,
-            (
-                f"Drop: {detector_result['vertical_drop']:.2f} "
-                f"dR: {detector_result['ratio_growth']:.2f}"
-            ),
-            (20, 225),
+            f"Pose Quality: {pose_quality * 100:.0f}%",
+            (20, 190),
             cv2.FONT_HERSHEY_SIMPLEX,
-            0.6,
+            0.65,
             (255, 255, 0),
             2
         )
 
 
         # ----------------------------------------------------
-        # Hiển thị trạng thái V2
+        # Trạng thái Final Demo
         # ----------------------------------------------------
 
         state_colors = {
             "NORMAL": (0, 255, 0),
             "NO_PERSON": (180, 180, 180),
-            "PERSON_LOST": (0, 165, 255),
-            "SUSPICIOUS": (0, 215, 255),
+            "PERSON_LOST": (0, 0, 255),
+            "SUSPICIOUS": (0, 165, 255),
             "FALL_CANDIDATE": (0, 165, 255),
             "FALL_DETECTED": (0, 0, 255),
             "FALL_ACTIVE": (0, 0, 255),
@@ -1048,20 +1026,23 @@ try:
         }
 
         state_labels = {
-            "NORMAL": "NORMAL",
+            "NORMAL": "SAFE",
             "NO_PERSON": "NO PERSON",
-            "PERSON_LOST": "PERSON LOST - FALL ALERT ACTIVE",
+            "PERSON_LOST": "FALL ALERT ACTIVE",
             "SUSPICIOUS": "SUSPICIOUS",
-            "FALL_CANDIDATE": "FALL CANDIDATE",
-            "FALL_DETECTED": "FALL DETECTED!",
-            "FALL_ACTIVE": "FALL ACTIVE",
+            "FALL_CANDIDATE": "CHECKING FALL...",
+            "FALL_DETECTED": "FALL DETECTED",
+            "FALL_ACTIVE": "FALL DETECTED",
             "RECOVERING": "RECOVERING",
         }
 
         cv2.putText(
             annotated_frame,
-            state_labels.get(fall_state, fall_state),
-            (20, 260),
+            state_labels.get(
+                fall_state,
+                fall_state
+            ),
+            (20, 230),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.9,
             state_colors.get(
