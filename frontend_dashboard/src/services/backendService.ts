@@ -379,6 +379,41 @@ class BackendService {
     }
   }
   /**
+   * PATCH /api/incidents/resolve-all
+   * Xác nhận xử lý toàn bộ cảnh báo AI/Gas.
+   */
+  public async resolveAllIncidents(): Promise<boolean> {
+    try {
+      const res = await fetch(
+        `${this.baseUrl}/api/incidents/resolve-all`,
+        {
+          method: 'PATCH',
+          headers: {
+            Accept: 'application/json',
+          },
+        }
+      );
+
+      if (!res.ok) {
+        throw new Error(
+          `HTTP error ${res.status}: ${res.statusText}`
+        );
+      }
+
+      const data = await res.json();
+
+      return data?.success === true;
+    } catch (err) {
+      console.warn(
+        '[REST API] Failed to resolve all incidents:',
+        err
+      );
+
+      return false;
+    }
+  }
+
+  /**
    * GET /api/medications/today
    * Lấy lịch uống thuốc thật của ngày hiện tại.
    */

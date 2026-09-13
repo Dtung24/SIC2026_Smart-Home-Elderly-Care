@@ -17,7 +17,11 @@ interface LogScreenProps {
   onClearAll?: () => void;
 }
 
-export const LogScreen: React.FC<LogScreenProps> = ({ logs, onResolveLog }) => {
+export const LogScreen: React.FC<LogScreenProps> = ({
+  logs,
+  onResolveLog,
+  onClearAll,
+}) => {
   const [filterType, setFilterType] = useState<string>('all');
 
   const filteredLogs = logs.filter((log) => {
@@ -28,6 +32,19 @@ export const LogScreen: React.FC<LogScreenProps> = ({ logs, onResolveLog }) => {
     if (filterType === 'alert') return log.level === 'warning' || log.level === 'danger';
     return true;
   });
+
+  const pendingIncidentCount = logs.filter(
+    (log) =>
+      (
+        log.type === 'ai_camera' ||
+        log.type === 'gas'
+      ) &&
+      (
+        log.level === 'warning' ||
+        log.level === 'danger'
+      ) &&
+      !log.resolved
+  ).length;
 
   const getLogIcon = (type: ActivityLog['type'], level: ActivityLog['level']) => {
     if (level === 'danger') return <Flame className="w-5 h-5 text-red-600" />;
@@ -79,6 +96,19 @@ export const LogScreen: React.FC<LogScreenProps> = ({ logs, onResolveLog }) => {
           </div>
           <span className="text-xs font-medium text-slate-500">{logs.length} sự kiện</span>
         </div>
+
+        {pendingIncidentCount > 0 && onClearAll && (
+          <button
+            type="button"
+            onClick={onClearAll}
+            className="mt-2 w-full flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white px-4 py-3 text-sm sm:text-base font-extrabold shadow-sm transition-all"
+          >
+            <CheckCircle2 className="w-5 h-5" />
+            <span>
+              Xác nhận xử lý tất cả ({pendingIncidentCount})
+            </span>
+          </button>
+        )}
       </div>
 
       {/* Filter Chips */}

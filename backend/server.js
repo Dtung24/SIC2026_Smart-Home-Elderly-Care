@@ -176,8 +176,50 @@ app.get("/api/incidents", async (req, res) => {
   const data = await Incident.find()
     .sort({ timestamp: -1 });
 
-  res.json(data);
+  // Luôn trả id dạng string cho Frontend.
+  // Không để Frontend phải tự tạo id giả từ timestamp.
+  const normalized = data.map((incident) => ({
+    ...incident.toObject(),
+    id: String(incident._id)
+  }));
+
+  res.json(normalized);
 });
+
+// Dùng khi thực nghiệm có nhiều alert AI/Gas.
+// Chỉ resolve Incident, không tác động lịch uống thuốc.
+app.patch("/api/incidents/resolve-all", async (req, res) => {
+  try {
+    const result = await Incident.updateMany(
+      {
+        type: { $in: ["fall", "gas"] },
+        status: { $ne: "resolved" }
+      },
+      {
+        $set: {
+          status: "resolved"
+        }
+      }
+    );
+
+    res.json({
+      success: true,
+      matchedCount: result.matchedCount || 0,
+      modifiedCount: result.modifiedCount || 0
+    });
+  } catch (error) {
+    console.error(
+      "❌ Không thể resolve toàn bộ incident:",
+      error.message
+    );
+
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
 app.patch("/api/incidents/:id/status", async (req, res) => {
   const incident = await Incident.findByIdAndUpdate(
     req.params.id,
@@ -366,8 +408,16 @@ mqttClient.on("message", async (topic, messageBuffer) => {
 
     console.log("🚨 CẢNH BÁO:", alert);
 
-    await Incident.create(alert);
-    io.emit("alert:new", alert);
+    const incident = await Incident.create(alert);
+
+    // Socket phải gửi MongoDB id thật.
+    // Nếu không, Frontend có thể PATCH bằng id giả và
+    // sau khi F5 sự kiện chưa xử lý sẽ xuất hiện trở lại.
+    io.emit("alert:new", {
+      ...incident.toObject(),
+      id: String(incident._id),
+      topic
+    });
   }
     // Nhận trạng thái Pi, ESP32 hoặc camera
     if (topic.endsWith("/status")) {

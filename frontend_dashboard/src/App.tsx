@@ -904,6 +904,120 @@ export default function App() {
     playSuccessChime();
   };
 
+  const handleResolveAllAlerts = async () => {
+    const pendingIncidentCount = logs.filter(
+      (log) =>
+        (
+          log.type === 'ai_camera' ||
+          log.type === 'gas'
+        ) &&
+        (
+          log.level === 'warning' ||
+          log.level === 'danger'
+        ) &&
+        !log.resolved
+    ).length;
+
+    if (pendingIncidentCount === 0) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Xác nhận đã xử lý ${pendingIncidentCount} cảnh báo AI/Gas?`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    const success =
+      await backendService.resolveAllIncidents();
+
+    if (!success) {
+      setAlertMessage(
+        'Không thể xác nhận tất cả cảnh báo. Vui lòng kiểm tra Backend.'
+      );
+
+      playWarningBeep();
+      return;
+    }
+
+    // Chỉ resolve log AI/Gas.
+    // Không tự đánh dấu "đã uống thuốc".
+    setLogs((prev) =>
+      prev.map((log) =>
+        (
+          log.type === 'ai_camera' ||
+          log.type === 'gas'
+        ) &&
+        (
+          log.level === 'warning' ||
+          log.level === 'danger'
+        ) &&
+        !log.resolved
+          ? {
+              ...log,
+              resolved: true,
+            }
+          : log
+      )
+    );
+
+    activeFallIncidentIdsRef.current.clear();
+
+    // Xóa trạng thái AI fall trên card camera.
+    setRooms((prev) =>
+      prev.map((room) =>
+        room.id === 'livingroom'
+          ? {
+              ...room,
+              aiStatusText:
+                'AI: Không có sự cố té ngã đang chờ xử lý',
+              aiStatusLevel: 'safe',
+            }
+          : room
+      )
+    );
+
+    const gasStillDanger =
+      gasDangerActiveRef.current;
+
+    // Nếu sensor Gas THỰC TẾ vẫn nguy hiểm thì
+    // tuyệt đối không chuyển toàn hệ thống sang safe.
+    setSensors((prev) => ({
+      ...prev,
+      systemStatus:
+        gasStillDanger ? 'danger' : 'safe',
+    }));
+
+    if (gasStillDanger) {
+      setAlertMessage(
+        sensors.gasRawAdc !== null &&
+        sensors.gasRawAdc !== undefined
+          ? `Cảnh báo khí Gas tại Nhà Bếp (${sensors.gasRawAdc} raw_adc)!`
+          : 'Cảm biến khí Gas tại Nhà Bếp đang ở mức nguy hiểm!'
+      );
+    } else {
+      setAlertMessage((prevMessage) => {
+        const message =
+          prevMessage?.toLowerCase() || '';
+
+        if (
+          message.includes('té ngã') ||
+          message.includes('camera ai') ||
+          message.includes('gas')
+        ) {
+          return undefined;
+        }
+
+        // Không xóa cảnh báo uống thuốc.
+        return prevMessage;
+      });
+    }
+
+    playSuccessChime();
+  };
+
   const unreadAlertsCount = logs.filter((l) => (l.level === 'warning' || l.level === 'danger') && !l.resolved).length;
   const livingRoomCamera = rooms.find((r) => r.id === 'livingroom') || rooms[0];
 
@@ -959,6 +1073,7 @@ export default function App() {
           <LogScreen
             logs={logs}
             onResolveLog={handleResolveLog}
+            onClearAll={handleResolveAllAlerts}
           />
         )}
 
